@@ -40,7 +40,7 @@ public class RDSDataClientWrapper
         {
             Database = "auroraappdb",
             FormatRecordsAs = "json",
-            Sql = "Select * FROM work_items_test1",
+            Sql = "Select * FROM work_items",
             SecretArn = _configuration["RDSSecretArn"],
             ResourceArn = _configuration["RDSResourceArn"]
         });

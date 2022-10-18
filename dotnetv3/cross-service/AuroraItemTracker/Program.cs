@@ -55,4 +55,55 @@ app.MapGet("/testrds", (RDSDataClientWrapper wrapper) =>
     })
     .WithName("TestRDS");
 
+/*app.MapGet("/items", (RDSDataClientWrapper wrapper) =>
+{
+    var result = wrapper.TestRequest();
+
+    return result;
+})
+    .WithName("Items");
+
+*/
+app.MapGet("/items", (RDSDataClientWrapper wrapper, string? status) =>
+{
+    var result = wrapper.TestRequest();
+
+    return result;
+});
+
+app.MapGet("/items/{item_id}", (RDSDataClientWrapper wrapper, int item_id) =>
+{
+    var result = wrapper.TestRequest();
+
+    return result;
+});
+
+app.MapPost("/items", (RDSDataClientWrapper wrapper, WorkItem workItem) =>
+{
+    var result = wrapper.TestRequest();
+
+    return result;
+});
+
+app.MapPut("/items/{item_id}", (RDSDataClientWrapper wrapper, WorkItem workItem, string item_id) =>
+{
+    var result = wrapper.TestRequest();
+
+    return result;
+});
+
+app.MapPut("/items/{item_id}:archive", (RDSDataClientWrapper wrapper, WorkItem workItem, string item_id) =>
+{
+    var result = wrapper.TestRequest();
+
+    return result;
+});
+
+//app.MapPost("/items:report", (RDSDataClientWrapper wrapper, string email) =>
+//{
+//    var result = wrapper.TestRequest();
+
+//    return result;
+//});
+
 app.Run();
