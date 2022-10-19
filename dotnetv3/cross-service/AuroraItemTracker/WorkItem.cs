@@ -1,11 +1,45 @@
-﻿namespace AuroraItemTracker
+﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier:  Apache-2.0
+
+namespace AuroraItemTracker;
+
+/// <summary>
+/// Work item object.
+/// </summary>
+public class WorkItem
 {
-    public class WorkItem
-    {
-        string Id { get; set; }
-        string Name { get; set; }
-        string Guide { get; set; }
-        string Description { get; set; }
-        string Status { get; set; }
-    }
+    /// <summary>
+    /// Id of the work item.
+    /// </summary>
+    public string ItemId { get; set; } = null!;
+
+    /// <summary>
+    /// Date the item was created;
+    /// </summary>
+    public DateTime? Date { get; set; }
+
+    /// <summary>
+    /// Description of the work item.
+    /// </summary>
+    public string Description { get; set; } = null!;
+
+    /// <summary>
+    /// The guide for the work item.
+    /// </summary>
+    public string Guide { get; set; } = null!;
+
+    /// <summary>
+    /// User name for the work item;
+    /// </summary>
+    public string UserName { get; set; } = null!;
+
+    /// <summary>
+    /// The current status of the work item.
+    /// </summary>
+    public string Status { get; set; } = null!;
+
+    /// <summary>
+    /// The archive state of the work item.
+    /// </summary>
+    public ArchiveState Archive { get; set; }
 }

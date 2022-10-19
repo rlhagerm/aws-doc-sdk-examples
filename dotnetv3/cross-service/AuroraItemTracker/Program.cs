@@ -1,12 +1,17 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier:  Apache-2.0
+
+using System.Net;
 using Amazon.RDSDataService;
 using AuroraItemTracker;
 using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Logging.Debug;
 
+// todo: configure logging.
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddAWSService<IAmazonRDSDataService>();
-builder.Services.AddScoped<RDSDataClientWrapper>();
+builder.Services.AddScoped<WorkItemService>();
 
 // Add services to the container.
 builder.Services.AddAuthorization();
@@ -47,9 +52,9 @@ app.MapGet("/weatherforecast", (HttpContext httpContext) =>
     })
     .WithName("GetWeatherForecast");
 
-app.MapGet("/testrds", (RDSDataClientWrapper wrapper) =>
+app.MapGet("/testrds", (WorkItemService workItemService) =>
     {
-        var result = wrapper.TestRequest();
+        var result = workItemService.TestRequest();
 
         return result;
     })
@@ -64,44 +69,48 @@ app.MapGet("/testrds", (RDSDataClientWrapper wrapper) =>
     .WithName("Items");
 
 */
-app.MapGet("/items", (RDSDataClientWrapper wrapper, string? status) =>
+
+app.MapGet("/items", (WorkItemService workItemService, string? status) =>
 {
-    var result = wrapper.TestRequest();
+    // If status is not sent, use active as the status.
+    status ??= "active";
+    Enum.TryParse<ArchiveState>(status, true, out var archiveState);
+    var result = workItemService.GetItemsByArchiveState(archiveState);
 
     return result;
 });
 
-app.MapGet("/items/{item_id}", (RDSDataClientWrapper wrapper, int item_id) =>
+app.MapGet("/items/{item_id}", (WorkItemService workItemService, string item_id) =>
 {
-    var result = wrapper.TestRequest();
+    var result = workItemService.GetItem(item_id);
 
     return result;
 });
 
-app.MapPost("/items", (RDSDataClientWrapper wrapper, WorkItem workItem) =>
+app.MapPost("/items", (WorkItemService workItemService, WorkItem workItem) =>
 {
-    var result = wrapper.TestRequest();
+    var result = workItemService.CreateItem(workItem);
 
     return result;
 });
 
-app.MapPut("/items/{item_id}", (RDSDataClientWrapper wrapper, WorkItem workItem, string item_id) =>
+//app.MapPut("/items/{item_id}", (WorkItemService workItemService, WorkItem workItem, string item_id) =>
+//{
+//    var result = workItemService.TestRequest();
+
+//    return result;
+//});
+
+app.MapPut("/items/{item_id}:archive", (WorkItemService workItemService, string item_id) =>
 {
-    var result = wrapper.TestRequest();
+    var result = workItemService.ArchiveItem(item_id);
 
     return result;
 });
 
-app.MapPut("/items/{item_id}:archive", (RDSDataClientWrapper wrapper, string item_id) =>
+app.MapPost("/items:report", (WorkItemService workItemService, string email) =>
 {
-    var result = wrapper.TestRequest();
-
-    return result;
-});
-
-app.MapPost("/items:report", (RDSDataClientWrapper wrapper, string email) =>
-{
-    var result = wrapper.TestRequest();
+    var result = workItemService.TestRequest();
 
     return result;
 });
