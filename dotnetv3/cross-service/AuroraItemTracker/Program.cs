@@ -92,18 +92,18 @@ app.MapPut("/items/{item_id}", (RDSDataClientWrapper wrapper, WorkItem workItem,
     return result;
 });
 
-app.MapPut("/items/{item_id}:archive", (RDSDataClientWrapper wrapper, WorkItem workItem, string item_id) =>
+app.MapPut("/items/{item_id}:archive", (RDSDataClientWrapper wrapper, string item_id) =>
 {
     var result = wrapper.TestRequest();
 
     return result;
 });
 
-//app.MapPost("/items:report", (RDSDataClientWrapper wrapper, string email) =>
-//{
-//    var result = wrapper.TestRequest();
+app.MapPost("/items:report", (RDSDataClientWrapper wrapper, string email) =>
+{
+    var result = wrapper.TestRequest();
 
-//    return result;
-//});
+    return result;
+});
 
 app.Run();
