@@ -15,8 +15,8 @@ public class WorkItemService
 {
     private readonly IAmazonRDSDataService _amazonRDSDataService;
     private readonly IConfiguration _configuration;
-    private string _databaseName;
-    private string _tableName;
+    private readonly string _databaseName;
+    private readonly string _tableName;
 
     /// <summary>
     /// Constructor that uses the injected Amazon RDS Data Service client.
@@ -32,6 +32,86 @@ public class WorkItemService
     }
 
     /// <summary>
+    /// Execute a SQL statement using the Amazon RDS Data Service
+    /// </summary>
+    /// <param name="sql">The SQL statement.</param>
+    /// <param name="parameters">Optional parameters for the statement.</param>
+    /// <returns>The statement response.</returns>
+    public async Task<ExecuteStatementResponse> ExecuteRDSStatement(string sql, List<SqlParameter> parameters = null!)
+    {
+        var statementResult = await _amazonRDSDataService.ExecuteStatementAsync(
+            new ExecuteStatementRequest
+            {
+                Database = _databaseName,
+                FormatRecordsAs = "json",
+                Sql = sql,
+                Parameters = parameters,
+                SecretArn = _configuration["RDSSecretArn"],
+                ResourceArn = _configuration["RDSResourceArn"]
+            });
+        return statementResult;
+    }
+
+    /// <summary>
+    /// Convert a statement response to a collection of WorkItems.
+    /// </summary>
+    /// <param name="statementResult">The response from the data service.</param>
+    /// <returns>The collection of WorkItems.</returns>
+    public WorkItem[] GetItemsFromResponse(ExecuteStatementResponse statementResult)
+    {
+        var results = JsonSerializer.Deserialize<WorkItem[]>(
+            statementResult.FormattedRecords,
+            new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        return results!;
+    }
+
+    /// <summary>
+    /// Add a string parameter to a parameter collection.
+    /// </summary>
+    /// <param name="parameters">The parameter collection.</param>
+    /// <param name="name">Name of the parameter.</param>
+    /// <param name="value">Value for the parameter.</param>
+    public void AddStringParameter(List<SqlParameter> parameters, string name, string value)
+    {
+        parameters.Add( new SqlParameter()
+        {
+            Name = name,
+            Value = new Field { StringValue = value }
+        });
+    }
+
+    /// <summary>
+    /// Add a numeric parameter to a parameter collection.
+    /// </summary>
+    /// <param name="parameters">The parameter collection.</param>
+    /// <param name="name">Name of the parameter.</param>
+    /// <param name="value">Value for the parameter.</param>
+    public void AddNumericParameter(List<SqlParameter> parameters, string name, long value)
+    {
+        parameters.Add(new SqlParameter()
+        {
+            Name = name,
+            Value = new Field { LongValue = value }
+        });
+    }
+
+    /// <summary>
+    /// Get all items.
+    /// </summary>
+    /// <returns>A collection of WorkItems.</returns>
+    public async Task<IList<WorkItem>> GetAllItems()
+    {
+        var statementResult = await ExecuteRDSStatement($"SELECT * FROM {_tableName};");
+
+        var results = GetItemsFromResponse(statementResult);
+
+        return results!;
+    }
+
+    /// <summary>
     /// Get the items with a particular archive state.
     /// </summary>
     /// <param name="archiveState">The archive state of the items to get.</param>
@@ -39,31 +119,14 @@ public class WorkItemService
     public async Task<IList<WorkItem>> GetItemsByArchiveState(ArchiveState archiveState)
     {
         // Set up the parameters.
-        var parameters = new List<SqlParameter>
-        {
-            new()
-            {
-                Name = "isArchived",
-                Value = new Field { LongValue = (long)archiveState }
-            }
-        };
-
-        var statementResult = await _amazonRDSDataService.ExecuteStatementAsync(new ExecuteStatementRequest
-        {
-            Database = _databaseName,
-            FormatRecordsAs = "json",
-            Sql = $"SELECT * FROM {_tableName} WHERE archive = :isArchived",
-            Parameters = parameters,
-            SecretArn = _configuration["RDSSecretArn"],
-            ResourceArn = _configuration["RDSResourceArn"]
-        });
+        var parameters = new List<SqlParameter>();
+        AddNumericParameter(parameters, "isArchived", (long)archiveState);
         
-        var results = JsonSerializer.Deserialize<WorkItem[]>(
-            statementResult.FormattedRecords,
-            new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            });
+        var statementResult = await ExecuteRDSStatement(
+            $"SELECT * FROM {_tableName} WHERE archive = :isArchived;",
+            parameters);
+
+        var results = GetItemsFromResponse(statementResult);
         return results!;
     }
 
@@ -75,38 +138,19 @@ public class WorkItemService
     public async Task<WorkItem> GetItem(string itemId)
     {
         // Set up the parameters.
-        var parameters = new List<SqlParameter>
-        {
-            new()
-            {
-                Name = "itemId",
-                Value = new Field { StringValue = itemId }
-            }
-        };
+        var parameters = new List<SqlParameter>();
+        AddStringParameter(parameters, "itemId", itemId);
 
-        var statementResult = await _amazonRDSDataService.ExecuteStatementAsync(new ExecuteStatementRequest
-        {
-            Database = _databaseName,
-            FormatRecordsAs = "json",
-            Sql = $"SELECT * FROM {_tableName} WHERE itemId = :itemId;",
-            Parameters = parameters,
-            SecretArn = _configuration["RDSSecretArn"],
-            ResourceArn = _configuration["RDSResourceArn"]
-        });
+        var statementResult = await ExecuteRDSStatement(
+            $"SELECT * FROM {_tableName} WHERE itemId = :itemId;",
+            parameters);
 
-        var results = JsonSerializer.Deserialize<WorkItem[]>(
-            statementResult.FormattedRecords,
-            new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            });
+        var results = GetItemsFromResponse(statementResult);
 
-        if (results != null && results.Any())
-        {
-            return results.First();
-        }
-
-        throw new NotFoundException($"Work item could not be found with id {itemId}");
+        return results.Any()
+            ? results.First()
+            : throw new NotFoundException(
+                $"Work item could not be found with id {itemId}");
     }
 
     /// <summary>
@@ -116,60 +160,28 @@ public class WorkItemService
     /// <returns>True if successful.</returns>
     public async Task<bool> CreateItem(WorkItem workItem)
     {
-        // assign a new ID to the work item.
+        // Assign a new ID to the work item.
         workItem.ItemId = Guid.NewGuid().ToString();
 
         // Set up the parameters.
-        var parameters = new List<SqlParameter>
-        {
-            new()
-            {
-                Name = "itemId",
-                Value = new Field { StringValue = workItem.ItemId }
-            },
-            new()
-            {
-                Name = "description",
-                Value = new Field { StringValue = workItem.Description }
-            },
-            new()
-            {
-                Name = "guide",
-                Value = new Field { StringValue = workItem.Guide }
-            },
-            new()
-            {
-                Name = "status",
-                Value = new Field { StringValue = workItem.Status }
-            },
-            new()
-            {
-                Name = "userName",
-                Value = new Field { StringValue = workItem.UserName }
-            },
-            new()
-            {
-                Name = "archiveState",
-                Value = new Field { LongValue = (long)workItem.Archive }
-            }
-        };
+        var parameters = new List<SqlParameter>();
+        AddStringParameter(parameters, "itemId", workItem.ItemId);
+        AddStringParameter(parameters, "description", workItem.Description);
+        AddStringParameter(parameters, "guide", workItem.Guide);
+        AddStringParameter(parameters, "status", workItem.Status);
+        AddStringParameter(parameters, "userName", workItem.UserName);
+        AddNumericParameter(parameters, "archiveState", (long)workItem.Archive);
 
-        var statementResult = await _amazonRDSDataService.ExecuteStatementAsync(new ExecuteStatementRequest
-        {
-            Database = _databaseName,
-            FormatRecordsAs = "json",
-            Sql = $"INSERT INTO {_tableName} VALUES (" +
-                  $":itemId," +
-                  $"CURRENT_DATE," +
-                  $":description," +
-                  $":guide," +
-                  $":status," +
-                  $":userName," +
-                  $":archiveState);",
-            Parameters = parameters,
-            SecretArn = _configuration["RDSSecretArn"],
-            ResourceArn = _configuration["RDSResourceArn"]
-        });
+        var statementResult = await ExecuteRDSStatement(
+            $"INSERT INTO {_tableName} VALUES (" +
+            $":itemId," +
+            $"CURRENT_DATE," +
+            $":description," +
+            $":guide," +
+            $":status," +
+            $":userName," +
+            $":archiveState);",
+            parameters);
 
         return statementResult.HttpStatusCode == HttpStatusCode.OK &&
                statementResult.NumberOfRecordsUpdated == 1;
@@ -183,29 +195,13 @@ public class WorkItemService
     public async Task<bool> ArchiveItem(string itemId)
     {
         // Set up the parameters.
-        var parameters = new List<SqlParameter>
-        {
-            new()
-            {
-                Name = "itemId",
-                Value = new Field { StringValue = itemId}
-            },
-            new()
-            {
-                Name = "archiveState",
-                Value = new Field { LongValue = (long)ArchiveState.Archived }
-            }
-        };
+        var parameters = new List<SqlParameter>();
+        AddStringParameter(parameters, "itemId", itemId);
+        AddNumericParameter(parameters, "archiveState", (long)ArchiveState.Archived);
 
-        var statementResult = await _amazonRDSDataService.ExecuteStatementAsync(new ExecuteStatementRequest
-        {
-            Database = _databaseName,
-            FormatRecordsAs = "json",
-            Sql = $"UPDATE {_tableName} SET archive = :archiveState WHERE itemId = :itemId;",
-            Parameters = parameters,
-            SecretArn = _configuration["RDSSecretArn"],
-            ResourceArn = _configuration["RDSResourceArn"]
-        });
+        var statementResult = await ExecuteRDSStatement(
+            $"UPDATE {_tableName} SET archive = :archiveState WHERE itemId = :itemId;",
+            parameters);
 
         return statementResult.HttpStatusCode == HttpStatusCode.OK &&
                statementResult.NumberOfRecordsUpdated == 1;

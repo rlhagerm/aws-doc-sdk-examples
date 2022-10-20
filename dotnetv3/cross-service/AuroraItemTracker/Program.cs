@@ -1,14 +1,15 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier:  Apache-2.0
 
-using System.Net;
 using Amazon.RDSDataService;
 using AuroraItemTracker;
-using Microsoft.Extensions.Logging.Console;
-using Microsoft.Extensions.Logging.Debug;
 
-// todo: configure logging.
+// Top level statements to set up the API.
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.ConfigureLogging(logging =>
+{
+    logging.AddConsole();
+});
 
 builder.Services.AddAWSService<IAmazonRDSDataService>();
 builder.Services.AddScoped<WorkItemService>();
@@ -20,76 +21,51 @@ builder.Services.AddAuthorization();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-//services cors
+// Set up CORS.
 var myAllowSpecificOrigins = "AllowCORS";
-builder.Services.AddCors(p => p.AddPolicy(myAllowSpecificOrigins, builder =>
+builder.Services.AddCors(p => p.AddPolicy(myAllowSpecificOrigins, bldr =>
 {
-    builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+    bldr.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
 }));
 
 var app = builder.Build();
 app.UsePathBase("/api");
 app.UseCors(myAllowSpecificOrigins);
 
-// Configure the HTTP request pipeline.
+// Set up the Swagger UI if running in a development environment.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+// Configure the HTTP request pipeline.
 app.UseRouting();
 app.UseHttpsRedirection();
-
 app.UseAuthorization();
 
-var summaries = new[]
+// GET endpoint for getting a collection of work items, either with or without an archive state.
+app.MapGet("/items", async (WorkItemService workItemService, string? archive) =>
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+    IList<WorkItem> result;
 
-app.MapGet("/weatherforecast", (HttpContext httpContext) =>
+    switch (archive)
     {
-        var forecast = Enumerable.Range(1, 5).Select(index =>
-                new WeatherForecast
-                {
-                    Date = DateTime.Now.AddDays(index),
-                    TemperatureC = Random.Shared.Next(-20, 55),
-                    Summary = summaries[Random.Shared.Next(summaries.Length)]
-                })
-            .ToArray();
-        return forecast;
-    })
-    .WithName("GetWeatherForecast");
+        // If status is not sent, select all items.
+        case null:
+            result = await workItemService.GetAllItems();
+            break;
+        default:
+            Enum.TryParse<ArchiveState>(archive, true, out var archiveState);
 
-app.MapGet("/testrds", (WorkItemService workItemService) =>
-    {
-        var result = workItemService.TestRequest();
-
-        return result;
-    })
-    .WithName("TestRDS");
-
-/*app.MapGet("/items", (RDSDataClientWrapper wrapper) =>
-{
-    var result = wrapper.TestRequest();
-
-    return result;
-})
-    .WithName("Items");
-
-*/
-
-app.MapGet("/items", (WorkItemService workItemService, string? archive) =>
-{
-    // If status is not sent, use active as the status.
-    archive ??= "active";
-    Enum.TryParse<ArchiveState>(archive, true, out var archiveState);
-    var result = workItemService.GetItemsByArchiveState(archiveState);
+            result = await workItemService.GetItemsByArchiveState(archiveState);
+            break;
+    }
 
     return result;
 });
 
+// GET endpoint for getting a single item by its ID.
 app.MapGet("/items/{item_id}", (WorkItemService workItemService, string item_id) =>
 {
     var result = workItemService.GetItem(item_id);
@@ -97,6 +73,7 @@ app.MapGet("/items/{item_id}", (WorkItemService workItemService, string item_id)
     return result;
 });
 
+// POST to add a new work item.
 app.MapPost("/items", (WorkItemService workItemService, WorkItem workItem) =>
 {
     var result = workItemService.CreateItem(workItem);
@@ -104,13 +81,7 @@ app.MapPost("/items", (WorkItemService workItemService, WorkItem workItem) =>
     return result;
 });
 
-//app.MapPut("/items/{item_id}", (WorkItemService workItemService, WorkItem workItem, string item_id) =>
-//{
-//    var result = workItemService.TestRequest();
-
-//    return result;
-//});
-
+// PUT to set the archive state of a work item by its ID.
 app.MapPut("/items/{item_id}:archive", (WorkItemService workItemService, string item_id) =>
 {
     var result = workItemService.ArchiveItem(item_id);
@@ -118,6 +89,7 @@ app.MapPut("/items/{item_id}:archive", (WorkItemService workItemService, string 
     return result;
 });
 
+// POST to send a CSV report to a specific email address.
 app.MapPost("/items:report", (WorkItemService workItemService, string email) =>
 {
     var result = workItemService.TestRequest();
