@@ -20,7 +20,16 @@ builder.Services.AddAuthorization();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+//services cors
+var myAllowSpecificOrigins = "AllowCORS";
+builder.Services.AddCors(p => p.AddPolicy(myAllowSpecificOrigins, builder =>
+{
+    builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+}));
+
 var app = builder.Build();
+app.UsePathBase("/api");
+app.UseCors(myAllowSpecificOrigins);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -29,6 +38,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseRouting();
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
@@ -70,11 +80,11 @@ app.MapGet("/testrds", (WorkItemService workItemService) =>
 
 */
 
-app.MapGet("/items", (WorkItemService workItemService, string? status) =>
+app.MapGet("/items", (WorkItemService workItemService, string? archive) =>
 {
     // If status is not sent, use active as the status.
-    status ??= "active";
-    Enum.TryParse<ArchiveState>(status, true, out var archiveState);
+    archive ??= "active";
+    Enum.TryParse<ArchiveState>(archive, true, out var archiveState);
     var result = workItemService.GetItemsByArchiveState(archiveState);
 
     return result;
