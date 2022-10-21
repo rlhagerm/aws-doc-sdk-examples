@@ -2,6 +2,7 @@
 // SPDX-License-Identifier:  Apache-2.0
 
 using Amazon.RDSDataService;
+using Amazon.SimpleEmailV2;
 using AuroraItemTracker;
 
 // Top level statements to set up the API.
@@ -12,7 +13,9 @@ builder.Host.ConfigureLogging(logging =>
 });
 
 builder.Services.AddAWSService<IAmazonRDSDataService>();
+builder.Services.AddAWSService<IAmazonSimpleEmailServiceV2>();
 builder.Services.AddScoped<WorkItemService>();
+builder.Services.AddScoped<ReportService>();
 
 // Add services to the container.
 builder.Services.AddAuthorization();
@@ -90,11 +93,12 @@ app.MapPut("/items/{item_id}:archive", (WorkItemService workItemService, string 
 });
 
 // POST to send a CSV report to a specific email address.
-app.MapPost("/items:report", (WorkItemService workItemService, string email) =>
+app.MapPost("/items:report", async (WorkItemService workItemService, ReportService reportService, string emailRecipient) =>
 {
-    var result = workItemService.TestRequest();
+    var activeItems = await workItemService.GetItemsByArchiveState(ArchiveState.Active);
+    var messageId = await reportService.SendReport3(activeItems, emailRecipient);
 
-    return result;
+    return messageId;
 });
 
 app.Run();
