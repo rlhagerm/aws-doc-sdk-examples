@@ -69,25 +69,25 @@ app.MapGet("/items", async (WorkItemService workItemService, string? archive) =>
 });
 
 // GET endpoint for getting a single item by its ID.
-app.MapGet("/items/{item_id}", (WorkItemService workItemService, string item_id) =>
+app.MapGet("/items/{item_id}", async (WorkItemService workItemService, string item_id) =>
 {
-    var result = workItemService.GetItem(item_id);
+    var result = await workItemService.GetItem(item_id);
 
     return result;
 });
 
 // POST to add a new work item.
-app.MapPost("/items", (WorkItemService workItemService, WorkItem workItem) =>
+app.MapPost("/items", async (WorkItemService workItemService, WorkItem workItem) =>
 {
-    var result = workItemService.CreateItem(workItem);
+    var result = await workItemService.CreateItem(workItem);
 
     return result;
 });
 
 // PUT to set the archive state of a work item by its ID.
-app.MapPut("/items/{item_id}:archive", (WorkItemService workItemService, string item_id) =>
+app.MapPut("/items/{item_id}:archive", async (WorkItemService workItemService, string item_id) =>
 {
-    var result = workItemService.ArchiveItem(item_id);
+    var result = await workItemService.ArchiveItem(item_id);
 
     return result;
 });

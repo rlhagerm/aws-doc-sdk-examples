@@ -123,7 +123,7 @@ public class WorkItemService
         AddNumericParameter(parameters, "isArchived", (long)archiveState);
         
         var statementResult = await ExecuteRDSStatement(
-            $"SELECT * FROM {_tableName} WHERE archive = :isArchived;",
+            $"SELECT * FROM {_tableName} WHERE archived = :isArchived;",
             parameters);
 
         var results = GetItemsFromResponse(statementResult);
@@ -142,7 +142,7 @@ public class WorkItemService
         AddStringParameter(parameters, "itemId", itemId);
 
         var statementResult = await ExecuteRDSStatement(
-            $"SELECT * FROM {_tableName} WHERE itemId = :itemId;",
+            $"SELECT * FROM {_tableName} WHERE iditem = :itemId;",
             parameters);
 
         var results = GetItemsFromResponse(statementResult);
@@ -161,21 +161,20 @@ public class WorkItemService
     public async Task<bool> CreateItem(WorkItem workItem)
     {
         // Assign a new ID to the work item.
-        workItem.ItemId = Guid.NewGuid().ToString();
+        workItem.IdItem = Guid.NewGuid().ToString();
 
         // Set up the parameters.
         var parameters = new List<SqlParameter>();
-        AddStringParameter(parameters, "itemId", workItem.ItemId);
+        AddStringParameter(parameters, "itemId", workItem.IdItem);
         AddStringParameter(parameters, "description", workItem.Description);
         AddStringParameter(parameters, "guide", workItem.Guide);
         AddStringParameter(parameters, "status", workItem.Status);
-        AddStringParameter(parameters, "userName", workItem.UserName);
-        AddNumericParameter(parameters, "archiveState", (long)workItem.Archive);
+        AddStringParameter(parameters, "userName", workItem.Name);
+        AddNumericParameter(parameters, "archiveState", (long)workItem.Archived);
 
         var statementResult = await ExecuteRDSStatement(
             $"INSERT INTO {_tableName} VALUES (" +
             $":itemId," +
-            $"CURRENT_DATE," +
             $":description," +
             $":guide," +
             $":status," +
@@ -200,7 +199,7 @@ public class WorkItemService
         AddNumericParameter(parameters, "archiveState", (long)ArchiveState.Archived);
 
         var statementResult = await ExecuteRDSStatement(
-            $"UPDATE {_tableName} SET archive = :archiveState WHERE itemId = :itemId;",
+            $"UPDATE {_tableName} SET archived = :archiveState WHERE iditem = :itemId;",
             parameters);
 
         return statementResult.HttpStatusCode == HttpStatusCode.OK &&

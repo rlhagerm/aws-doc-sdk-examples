@@ -11,12 +11,12 @@ public class WorkItem
     /// <summary>
     /// Id of the work item.
     /// </summary>
-    public string ItemId { get; set; } = null!;
+    public string IdItem { get; set; } = null!;
 
     /// <summary>
     /// Date the item was created;
     /// </summary>
-    public DateTime? Date { get; set; }
+    // public DateTime? Date { get; set; }
 
     /// <summary>
     /// Description of the work item.
@@ -31,7 +31,7 @@ public class WorkItem
     /// <summary>
     /// User name for the work item;
     /// </summary>
-    public string UserName { get; set; } = null!;
+    public string Name { get; set; } = null!;
 
     /// <summary>
     /// The current status of the work item.
@@ -41,5 +41,5 @@ public class WorkItem
     /// <summary>
     /// The archive state of the work item.
     /// </summary>
-    public ArchiveState Archive { get; set; }
+    public ArchiveState Archived { get; set; }
 }
