@@ -1,0 +1,7 @@
+{
+  "Database": "auroraappdb",
+  "WorkItemTable": "work_items",
+  "RDSSecretArn": "your_secret_arn",
+  "RDSResourceArn": "your_resource_arn",
+  "EmailSourceAddress": "sender@example.com"
+}
