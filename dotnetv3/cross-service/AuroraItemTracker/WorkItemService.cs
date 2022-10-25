@@ -84,21 +84,6 @@ public class WorkItemService
     }
 
     /// <summary>
-    /// Add a numeric parameter to a parameter collection.
-    /// </summary>
-    /// <param name="parameters">The parameter collection.</param>
-    /// <param name="name">Name of the parameter.</param>
-    /// <param name="value">Value for the parameter.</param>
-    public void AddNumericParameter(List<SqlParameter> parameters, string name, long value)
-    {
-        parameters.Add(new SqlParameter()
-        {
-            Name = name,
-            Value = new Field { LongValue = value }
-        });
-    }
-
-    /// <summary>
     /// Get all items.
     /// </summary>
     /// <returns>A collection of WorkItems.</returns>
@@ -116,12 +101,12 @@ public class WorkItemService
     /// </summary>
     /// <param name="archiveState">The archive state of the items to get.</param>
     /// <returns>A collection of WorkItems.</returns>
-    public async Task<IList<WorkItem>> GetItemsByArchiveState(ArchiveState archiveState)
+    public async Task<IList<WorkItem>> GetItemsByArchiveState(bool isArchived)
     {
         // Set up the parameters.
         var parameters = new List<SqlParameter>();
-        AddNumericParameter(parameters, "isArchived", (long)archiveState);
-        
+        AddStringParameter(parameters, "isArchived", Convert.ToInt16(isArchived).ToString());
+
         var statementResult = await ExecuteRDSStatement(
             $"SELECT * FROM {_tableName} WHERE archived = :isArchived;",
             parameters);
@@ -142,7 +127,7 @@ public class WorkItemService
         AddStringParameter(parameters, "itemId", itemId);
 
         var statementResult = await ExecuteRDSStatement(
-            $"SELECT * FROM {_tableName} WHERE iditem = :itemId;",
+            $"SELECT * FROM {_tableName} WHERE id = :itemId;",
             parameters);
 
         var results = GetItemsFromResponse(statementResult);
@@ -161,16 +146,16 @@ public class WorkItemService
     public async Task<bool> CreateItem(WorkItem workItem)
     {
         // Assign a new ID to the work item.
-        workItem.IdItem = Guid.NewGuid().ToString();
+        workItem.Id = Guid.NewGuid().ToString();
 
         // Set up the parameters.
         var parameters = new List<SqlParameter>();
-        AddStringParameter(parameters, "itemId", workItem.IdItem);
+        AddStringParameter(parameters, "itemId", workItem.Id);
         AddStringParameter(parameters, "description", workItem.Description);
         AddStringParameter(parameters, "guide", workItem.Guide);
         AddStringParameter(parameters, "status", workItem.Status);
-        AddStringParameter(parameters, "userName", workItem.Name);
-        AddNumericParameter(parameters, "archiveState", (long)workItem.Archived);
+        AddStringParameter(parameters, "user", workItem.Name);
+        AddStringParameter(parameters, "archived", Convert.ToInt16(workItem.Archived).ToString());
 
         var statementResult = await ExecuteRDSStatement(
             $"INSERT INTO {_tableName} VALUES (" +
@@ -178,8 +163,8 @@ public class WorkItemService
             $":description," +
             $":guide," +
             $":status," +
-            $":userName," +
-            $":archiveState);",
+            $":user," +
+            $":archived);",
             parameters);
 
         return statementResult.HttpStatusCode == HttpStatusCode.OK &&
@@ -187,7 +172,7 @@ public class WorkItemService
     }
 
     /// <summary>
-    /// Archive a work item
+    /// Archive a work item.
     /// </summary>
     /// <param name="itemId">The ID of the item to archive.</param>
     /// <returns>True if successful.</returns>
@@ -196,30 +181,13 @@ public class WorkItemService
         // Set up the parameters.
         var parameters = new List<SqlParameter>();
         AddStringParameter(parameters, "itemId", itemId);
-        AddNumericParameter(parameters, "archiveState", (long)ArchiveState.Archived);
 
         var statementResult = await ExecuteRDSStatement(
-            $"UPDATE {_tableName} SET archived = :archiveState WHERE iditem = :itemId;",
+            $"UPDATE {_tableName} SET archived = 1 WHERE id = :itemId;",
             parameters);
 
         return statementResult.HttpStatusCode == HttpStatusCode.OK &&
                statementResult.NumberOfRecordsUpdated == 1;
     }
 
-    /// <summary>
-    /// This is a test request we will remove later.
-    /// </summary>
-    /// <returns></returns>
-    public async Task<string> TestRequest()
-    {
-        var testResult = await _amazonRDSDataService.ExecuteStatementAsync(new ExecuteStatementRequest()
-        {
-            Database = _databaseName,
-            FormatRecordsAs = "json",
-            Sql = $"Select * FROM {_tableName}",
-            SecretArn = _configuration["RDSSecretArn"],
-            ResourceArn = _configuration["RDSResourceArn"]
-        });
-        return testResult.FormattedRecords;
-    }
 }

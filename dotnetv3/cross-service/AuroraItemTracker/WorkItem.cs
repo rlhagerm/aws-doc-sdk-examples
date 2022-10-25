@@ -11,12 +11,7 @@ public class WorkItem
     /// <summary>
     /// Id of the work item.
     /// </summary>
-    public string IdItem { get; set; } = null!;
-
-    /// <summary>
-    /// Date the item was created;
-    /// </summary>
-    // public DateTime? Date { get; set; }
+    public string Id { get; set; } = null!;
 
     /// <summary>
     /// Description of the work item.
@@ -41,5 +36,6 @@ public class WorkItem
     /// <summary>
     /// The archive state of the work item.
     /// </summary>
-    public ArchiveState Archived { get; set; }
+    public bool Archived { get; set; }
+
 }

@@ -4,6 +4,7 @@
 using Amazon.RDSDataService;
 using Amazon.SimpleEmailV2;
 using AuroraItemTracker;
+using Microsoft.AspNetCore.Mvc;
 
 // Top level statements to set up the API.
 var builder = WebApplication.CreateBuilder(args);
@@ -48,20 +49,18 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 // GET endpoint for getting a collection of work items, either with or without an archive state.
-app.MapGet("/items", async (WorkItemService workItemService, string? archive) =>
+app.MapGet("/items", async (WorkItemService workItemService, bool? archived) =>
 {
     IList<WorkItem> result;
 
-    switch (archive)
+    switch (archived)
     {
         // If status is not sent, select all items.
         case null:
             result = await workItemService.GetAllItems();
             break;
         default:
-            Enum.TryParse<ArchiveState>(archive, true, out var archiveState);
-
-            result = await workItemService.GetItemsByArchiveState(archiveState);
+            result = await workItemService.GetItemsByArchiveState(archived.Value);
             break;
     }
 
@@ -69,9 +68,9 @@ app.MapGet("/items", async (WorkItemService workItemService, string? archive) =>
 });
 
 // GET endpoint for getting a single item by its ID.
-app.MapGet("/items/{item_id}", async (WorkItemService workItemService, string item_id) =>
+app.MapGet("/items/{itemId}", async (WorkItemService workItemService, string itemId) =>
 {
-    var result = await workItemService.GetItem(item_id);
+    var result = await workItemService.GetItem(itemId);
 
     return result;
 });
@@ -85,18 +84,20 @@ app.MapPost("/items", async (WorkItemService workItemService, WorkItem workItem)
 });
 
 // PUT to set the archive state of a work item by its ID.
-app.MapPut("/items/{item_id}:archive", async (WorkItemService workItemService, string item_id) =>
+app.MapPut("/items/{itemId}:archive", async (WorkItemService workItemService, string itemId) =>
 {
-    var result = await workItemService.ArchiveItem(item_id);
+    var result = await workItemService.ArchiveItem(itemId);
 
     return result;
 });
 
 // POST to send a CSV report to a specific email address.
-app.MapPost("/items:report", async (WorkItemService workItemService, ReportService reportService, string emailRecipient) =>
+app.MapPost("/items:report", async (WorkItemService workItemService, ReportService reportService, ReportRequest reportRequest) =>
 {
-    var activeItems = await workItemService.GetItemsByArchiveState(ArchiveState.Active);
-    var messageId = await reportService.SendReport3(activeItems, emailRecipient);
+    // Get the active items.
+    var activeItems = await workItemService.GetItemsByArchiveState(false);
+    // Send the email.
+    var messageId = await reportService.SendReport(activeItems, reportRequest.Email);
 
     return messageId;
 });

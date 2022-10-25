@@ -2,13 +2,10 @@
 // SPDX-License-Identifier:  Apache-2.0
 
 using System.Globalization;
-using System.Net.Mail;
-using System.Reflection;
-using System.Text;
 using Amazon.SimpleEmailV2;
 using Amazon.SimpleEmailV2.Model;
 using CsvHelper;
-using CsvHelper.Configuration;
+using MimeKit;
 
 namespace AuroraItemTracker;
 
@@ -30,47 +27,26 @@ public class ReportService
         _configuration = configuration;
     }
 
-    ///// <summary>
-    ///// Get a CSV report from a collection of work items.
-    ///// </summary>
-    ///// <param name="workItems"></param>
-    ///// <returns></returns>
-    //public async Task<MemoryStream> GetCsvReport(IList<WorkItem> workItems)
-    //{
-
-
-    //}
-
     /// <summary>
     /// Send the report to an email address. Both the sender and recipient must be validated email addresses if using the SES Sandbox.
     /// </summary>
-    /// <param name="workItems"></param>
-    /// <param name="emailAddress"></param>
-    /// <returns></returns>
-    public async Task<string> SendReport3(IList<WorkItem> workItems, string emailAddress)
+    /// <param name="workItems">The collection of work items for the report</param>
+    /// <param name="emailAddress">The recipient's email address.</param>
+    /// <returns>The messageId as a string.</returns>
+    public async Task<string> SendReport(IList<WorkItem> workItems, string emailAddress)
     {
-        await using var memoryStream = new MemoryStream();
-        await using var streamWriter = new StreamWriter(memoryStream);
+        await using var attachmentStream = new MemoryStream();
+        await using var streamWriter = new StreamWriter(attachmentStream);
         await using var csvWriter = new CsvWriter(streamWriter, CultureInfo.InvariantCulture);
+        await GetCsvStreamFromWorkItems(workItems, attachmentStream, streamWriter, csvWriter);
 
-        csvWriter.WriteHeader<WorkItem>();
-        await csvWriter.NextRecordAsync();
-        await csvWriter.WriteRecordsAsync(workItems);
-        await csvWriter.FlushAsync();
-        await streamWriter.FlushAsync();
-        memoryStream.Position = 0;
+        await using var messageStream = new MemoryStream();
+        var plainTextBody = GetReportPlainTextBody(workItems);
+        var htmlBody = GetReportHtmlBody(workItems);
+        var attachmentName = $"activeWorkItems_{DateTime.Now:g}.csv";
+        var subject = $"Item Tracker Report: Active Work Items {DateTime.Now:g}";
 
-        var fromEmailAddress = _configuration["EmailSourceAddress"];
-        var testMailMessage = new MailMessage(
-            fromEmailAddress,
-            emailAddress,
-            "Item Tracker Report: Active Work Items",
-            "This email was sent by Amazon SES, and includes an attached report of the current active work items." +
-            $"There are {workItems.Count} as of {System.DateTime.Now.ToString("g")}.");
-
-        testMailMessage.Attachments.Add(new Attachment(memoryStream, "activeWorkItems.csv"));
-
-        var dataStream = FromMailMessageToMemoryStream(testMailMessage);
+        await BuildRawMessageWithAttachment(emailAddress, plainTextBody, htmlBody, subject, attachmentName, attachmentStream, messageStream);
 
         var response = await _amazonSESService.SendEmailAsync(
             new SendEmailRequest
@@ -83,72 +59,91 @@ public class ReportService
                 {
                     Raw = new RawMessage()
                     {
-                        Data = dataStream
+                        Data = messageStream
                     }
                 },
             });
 
-        await dataStream.DisposeAsync();
-        return response.MessageId;
-    }
+            return response.MessageId;
+        }
 
     /// <summary>
-    /// Helper method to convert a MailMessage to a stream compatible with a Amazon SES raw email method.
-    /// This method is compatible with the .NET6 version of MailWriter. Other versions of .NET may need to use different constructors. 
+    /// Build a raw message memory stream with an attachment.
     /// </summary>
-    /// <param name="message">The MailMessage to convert.</param>
-    /// <returns>A memory stream for the email.</returns>
-    public MemoryStream FromMailMessageToMemoryStream(MailMessage message)
-    {
-        Assembly assembly = typeof(SmtpClient).Assembly;
-        Type mailWriterType = assembly.GetType("System.Net.Mail.MailWriter")!;
-        // Use the MailWriter type to write the MailMessage to a properly encoded MemoryStream.
-        MemoryStream stream = new MemoryStream();
-        ConstructorInfo mailWriterConstructor = mailWriterType.GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, null, new[] { typeof(Stream), typeof(Boolean) }, null)!;
-        MethodInfo sendMethod = typeof(MailMessage).GetMethod("Send", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        MethodInfo closeMethod = mailWriterType.GetMethod("Close", BindingFlags.Instance | BindingFlags.NonPublic)!;
-
-        object mailWriter = mailWriterConstructor.Invoke(new object[] { stream, true });
-        _ = sendMethod.Invoke(message, BindingFlags.Instance | BindingFlags.NonPublic, null, new[] { mailWriter, true, true }, null);
-        _ = closeMethod.Invoke(mailWriter, BindingFlags.Instance | BindingFlags.NonPublic, null, new object[] { }, null);
-
-        return stream;
-    }
-
-    /// <summary>
-    /// Send the report to an email address.
-    /// </summary>
-    /// <param name="workItems"></param>
+    /// <param name="workItems">The collection of work items</param>
     /// <param name="emailAddress"></param>
-    /// <returns></returns>
-    public async Task SendReport(IList<WorkItem> workItems, string emailAddress)
+    /// <returns>Async task.</returns>
+    public async Task BuildRawMessageWithAttachment(string emailAddress, string textBody, string htmlBody, string subject, string attachmentName,
+        MemoryStream attachmentStream, MemoryStream messageStream)
     {
-        var response = await _amazonSESService.SendEmailAsync(
-            new SendEmailRequest
-            {
-                Destination = new Destination
-                {
-                    ToAddresses = new List<string>{emailAddress}
-                },
-                Content = new EmailContent()
-                {
-                    Simple = new Message()
-                    {
-                        Body = new Body
-                        {
-                            Text = new Content
-                            {
-                                Charset = "UTF-8",
-                                Data = "Active work items report is attached to this email."
-                            }
-                        },
-                        Subject = new Content
-                        {
-                            Charset = "UTF-8",
-                            Data = "Active Work Items"
-                        }
-                    }
-                },
-            });
+        var fromEmailAddress = _configuration["EmailSourceAddress"];
+
+        var message = new MimeMessage();
+        var builder = new BodyBuilder()
+        {
+            TextBody = textBody,
+            HtmlBody = htmlBody
+        };
+
+        message.From.Add(new MailboxAddress(fromEmailAddress, fromEmailAddress));
+        message.To.Add(new MailboxAddress(emailAddress, emailAddress));
+        message.Subject = subject;
+
+        await builder.Attachments.AddAsync(attachmentName, attachmentStream);
+
+        message.Body = builder.ToMessageBody();
+        await message.WriteToAsync(messageStream);
+    }
+
+    /// <summary>
+    /// Get the HTML body email for the report.
+    /// </summary>
+    /// <param name="workItems">The collection of work items in the report.</param>
+    /// <returns>The body as a string.</returns>
+    private string GetReportHtmlBody(IList<WorkItem> workItems)
+    {
+        string htmlBody = "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\">";
+        htmlBody +=
+            "<HTML><HEAD><META http-equiv=Content-Type content=\"text/html; charset=iso-8859-1\">";
+        htmlBody +=
+            $"</HEAD><BODY><DIV><FONT color=#0000ff size=6>Item Tracker Active Item Report<BR/><BR/></FONT></DIV>";
+        htmlBody +=
+            $"<P>This email was sent using Amazon SES from the Item Tracker Example." +
+            $" The attached report contains a listing of the {workItems.Count} current active work items.</P>";
+        htmlBody += $"<P>This report was generated on {DateTime.Now:g}.</P>";
+        htmlBody += "</BODY></HTML>";
+        return htmlBody;
+    }
+
+    /// <summary>
+    /// Get the plain text body email for the report.
+    /// </summary>
+    /// <param name="workItems">The collection of work items in the report.</param>
+    /// <returns>The body as a string.</returns>
+    public string GetReportPlainTextBody(IList<WorkItem> workItems)
+    {
+        var plainTextBody =
+            "This email was sent using Amazon SES from the Item Tracker Example." +
+            $"\nThe report attached contains a listing of the {workItems.Count} current active work items." +
+            $"\nThis report was generated on {DateTime.Now:g}.";
+        return plainTextBody;
+    }
+
+    /// <summary>
+    /// Put the work items into a CSV in a memory stream for emailing.
+    /// </summary>
+    /// <param name="workItems">The work item collection.</param>
+    /// <param name="memoryStream">The memory stream to use.</param>
+    /// <param name="streamWriter">The stream writer to use.</param>
+    /// <param name="csvWriter">The csv writer to use.</param>
+    /// <returns>Async task.</returns>
+    public async Task GetCsvStreamFromWorkItems(IList<WorkItem> workItems, MemoryStream memoryStream, StreamWriter streamWriter, CsvWriter csvWriter)
+    {
+        csvWriter.WriteHeader<WorkItem>();
+        await csvWriter.NextRecordAsync();
+        await csvWriter.WriteRecordsAsync(workItems);
+        await csvWriter.FlushAsync();
+        await streamWriter.FlushAsync();
+        memoryStream.Position = 0;
     }
 }
