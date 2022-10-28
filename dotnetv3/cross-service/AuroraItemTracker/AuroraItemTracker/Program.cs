@@ -4,7 +4,6 @@
 using Amazon.RDSDataService;
 using Amazon.SimpleEmailV2;
 using AuroraItemTracker;
-using Microsoft.AspNetCore.Mvc;
 
 // Top level statements to set up the API.
 var builder = WebApplication.CreateBuilder(args);
@@ -13,12 +12,12 @@ builder.Host.ConfigureLogging(logging =>
     logging.AddConsole();
 });
 
+// Add services to the container.
 builder.Services.AddAWSService<IAmazonRDSDataService>();
 builder.Services.AddAWSService<IAmazonSimpleEmailServiceV2>();
 builder.Services.AddScoped<WorkItemService>();
 builder.Services.AddScoped<ReportService>();
 
-// Add services to the container.
 builder.Services.AddAuthorization();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -51,18 +50,7 @@ app.UseAuthorization();
 // GET endpoint for getting a collection of work items, either with or without an archive state.
 app.MapGet("/items", async (WorkItemService workItemService, bool? archived) =>
 {
-    IList<WorkItem> result;
-
-    switch (archived)
-    {
-        // If status is not sent, select all items.
-        case null:
-            result = await workItemService.GetAllItems();
-            break;
-        default:
-            result = await workItemService.GetItemsByArchiveState(archived.Value);
-            break;
-    }
+    var result = await workItemService.GetItems(archived);
 
     return result;
 });
@@ -97,9 +85,9 @@ app.MapPost("/items:report", async (WorkItemService workItemService, ReportServi
     // Get the active items.
     var activeItems = await workItemService.GetItemsByArchiveState(false);
     // Send the email.
-    var messageId = await reportService.SendReport(activeItems, reportRequest.Email);
+    await reportService.SendReport(activeItems, reportRequest.Email);
 
-    return messageId;
+    return Results.Ok();
 });
 
 app.Run();

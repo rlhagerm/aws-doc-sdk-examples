@@ -10,7 +10,7 @@ using MimeKit;
 namespace AuroraItemTracker;
 
 /// <summary>
-/// Class for sending work item reports using the Amazon SES service.
+/// Class for sending work item reports using Amazon Simple Email Service (Amazon SES).
 /// </summary>
 public class ReportService
 {
@@ -21,6 +21,7 @@ public class ReportService
     /// Constructor that uses the injected Amazon SES client.
     /// </summary>
     /// <param name="amazonSESService">Amazon SES client.</param>
+    /// <param name="configuration">App configuration.</param>
     public ReportService(IAmazonSimpleEmailServiceV2 amazonSESService, IConfiguration configuration)
     {
         _amazonSESService = amazonSESService;
@@ -28,7 +29,8 @@ public class ReportService
     }
 
     /// <summary>
-    /// Send the report to an email address. Both the sender and recipient must be validated email addresses if using the SES Sandbox.
+    /// Send the report to an email address.
+    /// Both the sender and recipient must be validated email addresses if this account uses the SES Sandbox.
     /// </summary>
     /// <param name="workItems">The collection of work items for the report</param>
     /// <param name="emailAddress">The recipient's email address.</param>
@@ -70,12 +72,18 @@ public class ReportService
     /// <summary>
     /// Build a raw message memory stream with an attachment.
     /// </summary>
-    /// <param name="workItems">The collection of work items</param>
-    /// <param name="emailAddress"></param>
+    /// <param name="emailAddress">The recipient's email address.</param>
+    /// <param name="textBody">The plain text email body.</param>
+    /// <param name="htmlBody">The HTML email body.</param>
+    /// <param name="subject">The email subject.</param>
+    /// <param name="attachmentName">The name for the attachment.</param>
+    /// <param name="attachmentStream">The stream for the attachment data.</param>
+    /// <param name="messageStream">The stream for the email message.</param>
     /// <returns>Async task.</returns>
     public async Task BuildRawMessageWithAttachment(string emailAddress, string textBody, string htmlBody, string subject, string attachmentName,
         MemoryStream attachmentStream, MemoryStream messageStream)
     {
+        // The email with attachment can be created using MimeKit.
         var fromEmailAddress = _configuration["EmailSourceAddress"];
 
         var message = new MimeMessage();
@@ -120,7 +128,7 @@ public class ReportService
     /// </summary>
     /// <param name="workItems">The collection of work items in the report.</param>
     /// <returns>The body as a string.</returns>
-    public string GetReportPlainTextBody(IList<WorkItem> workItems)
+    private string GetReportPlainTextBody(IList<WorkItem> workItems)
     {
         var plainTextBody =
             "This email was sent using Amazon SES from the Item Tracker Example." +
@@ -130,7 +138,7 @@ public class ReportService
     }
 
     /// <summary>
-    /// Put the work items into a CSV in a memory stream for emailing.
+    /// Put the work items into a CSV in a memory stream for emailing as an attachment..
     /// </summary>
     /// <param name="workItems">The work item collection.</param>
     /// <param name="memoryStream">The memory stream to use.</param>
@@ -139,6 +147,7 @@ public class ReportService
     /// <returns>Async task.</returns>
     public async Task GetCsvStreamFromWorkItems(IList<WorkItem> workItems, MemoryStream memoryStream, StreamWriter streamWriter, CsvWriter csvWriter)
     {
+        // The CSV report can be created using CsvHelper.
         csvWriter.WriteHeader<WorkItem>();
         await csvWriter.NextRecordAsync();
         await csvWriter.WriteRecordsAsync(workItems);
