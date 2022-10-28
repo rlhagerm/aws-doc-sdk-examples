@@ -276,8 +276,8 @@ public class WorkItemServiceTests
     {
         var responseString = _configuration["WorkItemCollectionResponseString"];
         var mockRDSDataService = new Mock<IAmazonRDSDataService>();
-        var response = new ExecuteStatementResponse {FormattedRecords = responseString};
-        mockRDSDataService.Setup(ds => 
+        var response = new ExecuteStatementResponse { FormattedRecords = responseString };
+        mockRDSDataService.Setup(ds =>
             ds.ExecuteStatementAsync(
                 It.IsAny<ExecuteStatementRequest>(),
                 CancellationToken.None).Result).Returns(response);
@@ -353,7 +353,6 @@ public class WorkItemServiceTests
         {
             await service.GetItem("sampleId");
         });
-        
     }
 
     /// <summary>
@@ -366,7 +365,7 @@ public class WorkItemServiceTests
     public async Task VerifyCreateItem_ShouldUpdateRecord()
     {
         var mockRDSDataService = new Mock<IAmazonRDSDataService>();
-        var response = new ExecuteStatementResponse { NumberOfRecordsUpdated = 1, HttpStatusCode = HttpStatusCode.OK};
+        var response = new ExecuteStatementResponse { NumberOfRecordsUpdated = 1, HttpStatusCode = HttpStatusCode.OK };
         mockRDSDataService.Setup(ds =>
             ds.ExecuteStatementAsync(
                 It.IsAny<ExecuteStatementRequest>(),

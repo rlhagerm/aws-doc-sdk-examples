@@ -53,14 +53,14 @@ public class WorkItemService
     public ExecuteStatementRequest GetRDSRequest(string sql, List<SqlParameter> parameters = null!)
     {
         return new ExecuteStatementRequest
-            {
-                Database = _databaseName,
-                FormatRecordsAs = "json",
-                Sql = sql,
-                Parameters = parameters,
-                SecretArn = _configuration["RDSSecretArn"],
-                ResourceArn = _configuration["RDSResourceArn"]
-            };
+        {
+            Database = _databaseName,
+            FormatRecordsAs = "json",
+            Sql = sql,
+            Parameters = parameters,
+            SecretArn = _configuration["RDSSecretArn"],
+            ResourceArn = _configuration["RDSResourceArn"]
+        };
     }
 
     /// <summary>
@@ -87,7 +87,7 @@ public class WorkItemService
     /// <param name="value">Value for the parameter.</param>
     public void AddStringParameter(List<SqlParameter> parameters, string name, string value)
     {
-        parameters.Add( new SqlParameter()
+        parameters.Add(new SqlParameter()
         {
             Name = name,
             Value = new Field { StringValue = value }
@@ -278,7 +278,7 @@ public class WorkItemService
     /// <returns>True if successful.</returns>
     public async Task<bool> ArchiveItem(string itemId)
     {
-        var statementResult = await RunRDSStatement( GetArchiveItemRequest(itemId));
+        var statementResult = await RunRDSStatement(GetArchiveItemRequest(itemId));
 
         return statementResult.HttpStatusCode == HttpStatusCode.OK &&
                statementResult.NumberOfRecordsUpdated == 1;

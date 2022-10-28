@@ -66,8 +66,8 @@ public class ReportService
                 },
             });
 
-            return response.MessageId;
-        }
+        return response.MessageId;
+    }
 
     /// <summary>
     /// Build a raw message memory stream with an attachment.
