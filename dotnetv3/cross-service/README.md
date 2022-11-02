@@ -13,4 +13,6 @@ The application uses the following services:
   - Amazon Simple Notification Service (Amazon SNS)
   - Amazon Translation Service
 
+---
+
 Copyright (c) Amazon.com, Inc. or its affiliates. All Rights Reserved. SPDX-License-Identifier: Apache-2.0

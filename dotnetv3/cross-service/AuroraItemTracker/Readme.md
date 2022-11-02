@@ -2,40 +2,19 @@
 
 ## Overview
 
-| Heading      | Description |
-| ----------- | ----------- |
-| Description | Discusses a REST API that uses the AWS SDK for .NET (v3) to invoke AWS services. The API is called by a React web application that displays the data.   |
-| Updated   | 10/31/2022        |
-
 This example shows you how to use the AWS SDK for .NET (v3) to create a REST service that lets you do the following:
 
-* Read, write, and update work items that are stored in an Amazon Aurora Serverless database.
-* Use Amazon Simple Email Service (Amazon SES) to send email reports of work items.
+- Read, write, and update work items that are stored in an Amazon Aurora Serverless database.
+- Use Amazon Simple Email Service (Amazon SES) to send email reports of work items.
 
-This application has two parts: a user interface that uses React.js and a
-RESTful API created with C# and .NET 6. The React user interface is a single-page
-application (SPA) that interacts with the C# RESTful API by making `GET` and
-`POST` requests.
+## ⚠️ Important
 
-The API uses the [AmazonRDSDataServiceClient](https://docs.aws.amazon.com/sdkfornet/v3/apidocs/items/RDSDataService/TRDSDataServiceClient.html)
-object to perform CRUD operations on an Aurora Serverless database. The API
-returns JSON data in an HTTP response, as shown in the following illustration.
+- Running this code might result in charges to your AWS account.
+- Running the tests might result in charges to your AWS account.
+- We recommend that you grant your code least privilege. At most, grant only the minimum permissions required to perform the task. For more information, see [Grant least privilege](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#grant-least-privilege).
+- This code is not tested in every AWS Region. For more information, see [AWS Regional Services](https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services).
 
-![AWS Tracking Application](images/aurora_item_tracker_response.png)
-
-## Running the example
-
-### ⚠ Important
-
-+ The AWS services used in this project are included in the [AWS Free Tier](https://aws.amazon.com/free/?all-free-tier.sort-by=item.additionalFields.SortRank&all-free-tier.sort-order=asc).
-+ This code has not been tested in all AWS Regions. Some AWS services are
-  available only in specific Regions. For more information, see [AWS Regional
-  Services](https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services). 
-+ Running this code might result in charges to your AWS account. 
-+ Be sure to delete all of the resources that you create during this tutorial
-  so that you won't be charged.
-
-### Prerequisites
+## Prerequisites
 
 To run the code in this example, you need the following:
 
@@ -44,11 +23,11 @@ To run the code in this example, you need the following:
 + To set up your development environment,
 see [Setting up your AWS SDK for .NET environment](https://docs.aws.amazon.com/sdk-for-net/v3/developer-guide/net-dg-setup.html). 
 
-### Creating the resources
+## Deploying resources
 
 Using the AWS AWS Cloud Development Kit (AWS CDK), you can set up the resources required for this example. For more information, see [CDK instructions](https://github.com/awsdocs/aws-doc-sdk-examples/tree/main/resources/cdk/aurora_serverless_app/README.md).
 
-### Creating the database table
+### Create the database table
 
 After you have created the Aurora DB cluster and database, create a table to contain work items. You can do this by using either the AWS Command Line Interface (AWS CLI) or the AWS Management Console.
 AWS CLI
@@ -69,7 +48,18 @@ aws rds-data execute-statement ^
     --sql "CREATE TABLE items (id VARCHAR(45), description VARCHAR(400), guide VARCHAR(45), status VARCHAR(400), name VARCHAR(45), archived BOOLEAN);"
 ```
 
-## Running the example
+## Build the code
+
+This application has two parts: a user interface that uses React.js and a
+RESTful API created with C# and .NET 6. The React user interface is a single-page
+application (SPA) that interacts with the C# RESTful API by making `GET` and
+`POST` requests.
+
+The API uses the [AmazonRDSDataServiceClient](https://docs.aws.amazon.com/sdkfornet/v3/apidocs/items/RDSDataService/TRDSDataServiceClient.html)
+object to perform CRUD operations on an Aurora Serverless database. The API
+returns JSON data in an HTTP response, as shown in the following illustration.
+
+![AWS Tracker JSON response](images/aurora_item_tracker_response.png)
 
 To start the React web application, you can download files from the following GitHub repository. Included in this repository are instructions on how to set up the project. Click the following link to access the GitHub location [Item Tracker web client](https://github.com/awsdocs/aws-doc-sdk-examples/tree/main/resources/clients/react/item-tracker/README.md).  
 
@@ -104,12 +94,39 @@ The user can enter an email recipient in the **Email** text field and choose **S
 
 ![Report email](images/email.png)
 
-⚠ **Important!** You must update the email **sender** address with a verified email address. Otherwise, the email is not sent. For more information, see [Verifying email addresses in Amazon SES](https://docs.aws.amazon.com/ses/latest/DeveloperGuide/verify-email-addresses.html).       
+⚠️ **Important!** You must update the email **sender** address with a verified email address. Otherwise, the email is not sent. For more information, see [Verifying email addresses in Amazon SES](https://docs.aws.amazon.com/ses/latest/DeveloperGuide/verify-email-addresses.html).       
 
 Active items are selected from the database and used to dynamically create an Excel document. Then, the application uses **Amazon SES** to email the document to the email address entered. The following image shows an example of a report.
 
 ![A sample spreadsheet](images/excel_spreadsheet.png)
 
+## Delete the resources
+
+To avoid charges, delete all the resources that you created for this tutorial.
+
+If you created the resources using the CDK script provided, you can delete the resources by running the script with the following command:
+
+```
+cdk destroy
+```
+
+If you created your resources through the AWS Management Console, or modified them by running the app, you must use the console to delete them.
+
+**Note**: By running the app, you modified the table, so you must delete these resources manually through the console before you can delete the stack.
+
+## Next steps
+
+Congratulations! You have created and run a RESTful C# API that manages data in an Amazon Aurora serverless database, explored the database through the React frontend web application, and sent reports using Amazon SES.
+
+## Additional resources
+
+[Amazon Aurora User Guide](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/CHAP_AuroraOverview.html)
+[Amazon RDS User Guide](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Welcome.html)
+[Amazon SES Developer Guide](https://docs.aws.amazon.com/ses/latest/dg/Welcome.html)
+[RDS Data Service API Reference](https://docs.aws.amazon.com/rdsdataservice/latest/APIReference/Welcome.html)
+[Amazon SES API Reference](https://docs.aws.amazon.com/ses/latest/APIReference/Welcome.html)
+[Amazon RDS Data Service .NET API Reference](https://docs.aws.amazon.com/sdkfornet/v3/apidocs/items/RDSDataService/NRDSDataService.html)
+[Amazon SES .NET API Reference](https://docs.aws.amazon.com/sdkfornet/v3/apidocs/items/SimpleEmail/NSimpleEmail.html)
 For more AWS multiservice examples, see
 [usecases](https://github.com/awsdocs/aws-doc-sdk-examples/tree/master/dotnetv3/cross-service).
 
