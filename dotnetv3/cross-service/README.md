@@ -36,9 +36,9 @@ The application uses the following services:
   - Amazon Simple Notification Service (Amazon SNS)
   - Amazon Translation Service
 
-### [Amazon Aurora Serverless work item tracker web application](AuroraItemTracker/Readme.md)
+### [Amazon DynamoDB work item tracker web application](dynamodb_item_tracker/README.md)
 
-Shows how to create a web application that tracks work items in an Aurora database and emails 
+Shows how to create a web application that tracks work items in DynamoDB and emails 
 reports by using Amazon SES.
 
 The application uses the following services:
