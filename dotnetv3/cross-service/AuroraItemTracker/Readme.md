@@ -1,4 +1,4 @@
-# Tracking work items in an Aurora Serverless database with the SDK for .NET (v3)
+# Track work items in an Aurora Serverless database with the SDK for .NET (v3)
 
 ## Overview
 
@@ -23,7 +23,7 @@ To run the code in this example, you need the following:
 + To set up your development environment,
 see [Setting up your AWS SDK for .NET environment](https://docs.aws.amazon.com/sdk-for-net/v3/developer-guide/net-dg-setup.html). 
 
-## Deploying resources
+## Create the resources
 
 Using the AWS AWS Cloud Development Kit (AWS CDK), you can set up the resources required for this example. For more information, see [CDK instructions](https://github.com/awsdocs/aws-doc-sdk-examples/tree/main/resources/cdk/aurora_serverless_app/README.md).
 
@@ -48,12 +48,29 @@ aws rds-data execute-statement ^
     --sql "CREATE TABLE items (id VARCHAR(45), description VARCHAR(400), guide VARCHAR(45), status VARCHAR(400), name VARCHAR(45), archived BOOLEAN);"
 ```
 
+### Verified email address
+
+To email reports from the app, you must register at least one email address with Amazon SES. This verified email is specified as the sender for emailed reports.
+
+1. In a browser, navigate to the Amazon SES console.
+1. If necessary, select your AWS Region.
+1. Select Verified identities.
+1. Select Create identity.
+1. Select Email address.
+1. Enter an email address you own.
+1. Select Create identity.
+1. You will receive an email from Amazon Web Services that contains instructions on how to verify the email with Amazon SES. Follow the instructions in the email to complete verification.
+
+Tip: For this example, you can use the same email account for both the sender and the recipient.
+
 ## Build the code
 
 This application has two parts: a user interface that uses React.js and a
 RESTful API created with C# and .NET 6. The React user interface is a single-page
-application (SPA) that interacts with the C# RESTful API by making `GET` and
+application (SPA) that interacts with the C# RESTful API by making `GET`, `PUT`, and
 `POST` requests.
+
+### RESTful API
 
 The API uses the [AmazonRDSDataServiceClient](https://docs.aws.amazon.com/sdkfornet/v3/apidocs/items/RDSDataService/TRDSDataServiceClient.html)
 object to perform CRUD operations on an Aurora Serverless database. The API
@@ -61,13 +78,42 @@ returns JSON data in an HTTP response, as shown in the following illustration.
 
 ![AWS Tracker JSON response](images/aurora_item_tracker_response.png)
 
+#### Configure the application
+Before you run the .NET application, set the configuration values for your Aurora serverless
+database, and your verified email address in the `appsettings.json` file. Alternatively, add an `appsettings.development.json` file
+with your local settings.
+
+#### Run the application
+After the example compiles, you can run it from the command line. To do so,
+navigate to the folder that contains the .csproj file and run the following
+command:
+
+```
+dotnet run
+```
+
+Alternatively, you can run the example from within your IDE.
+
+#### Tests
+
+⚠️ Running the tests might result in charges to your AWS account.
+
+The solution includes a test project. To run the tests, navigate to the folder that contains the test project and then issue the following command:
+
+```
+dotnet test
+```
+
+Alternatively, you can open the example solution and use the Visual Studio Test Runner to run the tests.
+
+### Aurora Item Tracker user interface
 To start the React web application, you can download files from the following GitHub repository. Included in this repository are instructions on how to set up the project. Click the following link to access the GitHub location [Item Tracker web client](https://github.com/awsdocs/aws-doc-sdk-examples/tree/main/resources/clients/react/item-tracker/README.md).  
 
 When the web application is running, you will see something like the following.
 
 ![Aurora Item Tracker UI](images/elapp1.png)
 
-### Using the Aurora Item Tracker user interface
+#### Use the React web application
 
 A user can perform these tasks using the web application:
 
@@ -96,7 +142,7 @@ The user can enter an email recipient in the **Email** text field and choose **S
 
 ⚠️ **Important!** You must update the email **sender** address with a verified email address. Otherwise, the email is not sent. For more information, see [Verifying email addresses in Amazon SES](https://docs.aws.amazon.com/ses/latest/DeveloperGuide/verify-email-addresses.html).       
 
-Active items are selected from the database and used to dynamically create an Excel document. Then, the application uses **Amazon SES** to email the document to the email address entered. The following image shows an example of a report.
+Active items are selected from the database and used to dynamically create a .csv document. Then, the application uses **Amazon SES** to email the document to the email address entered. The following image shows an example of a report.
 
 ![A sample spreadsheet](images/excel_spreadsheet.png)
 
@@ -120,13 +166,14 @@ Congratulations! You have created and run a RESTful C# API that manages data in 
 
 ## Additional resources
 
-[Amazon Aurora User Guide](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/CHAP_AuroraOverview.html)
-[Amazon RDS User Guide](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Welcome.html)
-[Amazon SES Developer Guide](https://docs.aws.amazon.com/ses/latest/dg/Welcome.html)
-[RDS Data Service API Reference](https://docs.aws.amazon.com/rdsdataservice/latest/APIReference/Welcome.html)
-[Amazon SES API Reference](https://docs.aws.amazon.com/ses/latest/APIReference/Welcome.html)
-[Amazon RDS Data Service .NET API Reference](https://docs.aws.amazon.com/sdkfornet/v3/apidocs/items/RDSDataService/NRDSDataService.html)
-[Amazon SES .NET API Reference](https://docs.aws.amazon.com/sdkfornet/v3/apidocs/items/SimpleEmail/NSimpleEmail.html)
+- [Amazon Aurora User Guide](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/CHAP_AuroraOverview.html)
+- [Amazon RDS User Guide](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Welcome.html)
+- [Amazon SES Developer Guide](https://docs.aws.amazon.com/ses/latest/dg/Welcome.html)
+- [RDS Data Service API Reference](https://docs.aws.amazon.com/rdsdataservice/latest/APIReference/Welcome.html)
+- [Amazon SES API Reference](https://docs.aws.amazon.com/ses/latest/APIReference/Welcome.html)
+- [Amazon RDS Data Service .NET API Reference](https://docs.aws.amazon.com/sdkfornet/v3/apidocs/items/RDSDataService/NRDSDataService.html)
+- [Amazon SES .NET API Reference](https://docs.aws.amazon.com/sdkfornet/v3/apidocs/items/SimpleEmail/NSimpleEmail.html)
+
 For more AWS multiservice examples, see
 [usecases](https://github.com/awsdocs/aws-doc-sdk-examples/tree/master/dotnetv3/cross-service).
 

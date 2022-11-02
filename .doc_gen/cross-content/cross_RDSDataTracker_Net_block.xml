@@ -5,7 +5,7 @@
 ]>
 <block>
     <para>
-        Shows how to use the &PHPlong; to create a web application that tracks work items in an &RDS; database and
+        Shows how to use the &NETlong; to create a web application that tracks work items in an &RDS; database and
         emails reports by using &SESlong; (&SES;).
         This example uses a front end built with React.js to interact with a RESTful .NET backend.
     </para>
