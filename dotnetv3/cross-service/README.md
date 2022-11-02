@@ -1,11 +1,11 @@
 # AWS SDK for .NET 3.5+ cross-service examples
 
 This README lists the cross-service examples available for the AWS SDK for 
-Python (Boto3). Each folder in this directory contains the following cross-service 
+.NET (v3). Each folder in this directory contains the following cross-service 
 examples. A README in each folder describes how to run the example.
 
 A cross-service example is an application that works across multiple AWS services 
-using the AWS SDK for Python.
+using the AWS SDK for .NET.
 
 ## ⚠️ Important
 * Running this code might result in charges to your AWS account. 
@@ -15,7 +15,7 @@ using the AWS SDK for Python.
 
 ## Cross-service examples
 
-### [Amazon Aurora work item tracker web application]
+### [Amazon Aurora work item tracker web application](AuroraItemTracker/Readme.md)
 
 Shows how to create a web application that tracks work items in an Amazon Aurora database
 and emails reports by using Amazon SES.
@@ -36,7 +36,7 @@ The application uses the following services:
   - Amazon Simple Notification Service (Amazon SNS)
   - Amazon Translation Service
 
-### [Amazon DynamoDB work item tracker web application](dynamodb_item_tracker/README.md)
+### [Amazon DynamoDB work item tracker web application](DynamodbWebApp/Readme.md)
 
 Shows how to create a web application that tracks work items in DynamoDB and emails 
 reports by using Amazon SES.
