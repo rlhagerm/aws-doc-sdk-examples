@@ -15,6 +15,17 @@ using the AWS SDK for Python.
 
 ## Cross-service examples
 
+### [Amazon Aurora work item tracker web application]
+
+Shows how to create a web application that tracks work items in an Amazon Aurora database
+and emails reports by using Amazon SES.
+
+The application uses the following services:
+
+- Amazon Aurora
+- Amazon RDS
+- Amazon SES
+
 ### [Subscribe, publish, and translate example](SubscribePublishTranslate/Readme.md).
 
 Create an ASP .NET application that allows users to subscribe to an Amazon SNS
