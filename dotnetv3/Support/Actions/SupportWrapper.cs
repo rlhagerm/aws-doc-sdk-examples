@@ -282,4 +282,5 @@ public class SupportWrapper
         }
     }
 }
+// adding a comment to test
 // snippet-end:[Support.dotnetv3.SupportWrapper]
