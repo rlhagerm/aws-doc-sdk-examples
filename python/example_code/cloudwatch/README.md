@@ -62,6 +62,7 @@ can start using within minutes.*
 
 Run this example at a command prompt with the following command.
 
+test python update
 ```
 python cloudwatch_basics.py
 ``` 
