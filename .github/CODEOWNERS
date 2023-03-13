@@ -4,7 +4,7 @@
 # Order is important; the last matching pattern takes the most
 # precedence.
 
-# In this example, @rlhagerm  owns any files in the build/logs
+# In this example, @rlhagerm  owns any files in the /dotnetv3/
 # directory at the root of the repository and any of its
 # subdirectories.
 
