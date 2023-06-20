@@ -5,6 +5,8 @@ namespace SageMakerGeoSpacialLambda;
 
 public class QueuePayload
 {
-    public string Token { get; set; } = null!;
-    public Dictionary<string, string> Arguments { get; set; } = null!;
+    public string token { get; set; } = null!;
+    public string pipelineExecutionArn { get; set; }
+    public string status { get; set; }
+    public Dictionary<string, string> arguments { get; set; } = null!;
 }

@@ -1,8 +1,11 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier:  Apache-2.0
 
+using System.Text.Json;
+using Amazon;
 using Amazon.EC2;
 using Amazon.EC2.Model;
+using Amazon.Extensions.NETCore.Setup;
 using Amazon.IdentityManagement;
 using Amazon.IdentityManagement.Model;
 using Amazon.Lambda;
@@ -10,6 +13,7 @@ using Amazon.Lambda.Model;
 using Amazon.SageMaker;
 using Amazon.SageMaker.Model;
 using Amazon.SageMakerGeospatial;
+using Amazon.SageMakerGeospatial.Model;
 using Amazon.SQS;
 using Amazon.SQS.Model;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +24,7 @@ using Microsoft.Extensions.Logging.Debug;
 using SageMakerActions;
 using Filter = Amazon.EC2.Model.Filter;
 using Host = Microsoft.Extensions.Hosting.Host;
+using ResourceNotFoundException = Amazon.Lambda.Model.ResourceNotFoundException;
 
 
 namespace SageMakerScenario;
@@ -27,16 +32,16 @@ namespace SageMakerScenario;
 public class PipelineWorkflow
 {
     private static ILogger logger = null!;
-    private IAmazonIdentityManagementService _iamClient;
-    private SageMakerWrapper _sageMakerWrapper;
-    private IAmazonEC2 _ec2Client;
-    private IAmazonSQS _sqsClient;
-    private IAmazonLambda _lambdaClient;
-    private IAmazonSageMaker _sageMakerClient;
+    private static IAmazonIdentityManagementService _iamClient;
+    private static SageMakerWrapper _sageMakerWrapper;
+    private static IAmazonEC2 _ec2Client;
+    private static IAmazonSQS _sqsClient;
+    private static IAmazonLambda _lambdaClient;
+    private static IAmazonSageMaker _sageMakerClient;
 
     // TODO replace this with uploading the function directly
-    private string functionArn = "arn:aws:lambda:us-west-2:565846806325:function:SageMakerVectorLambda";
-    private string functionName = "SageMakerVectorLambda";
+    private static string functionArn = "arn:aws:lambda:us-west-2:565846806325:function:SageMakerVectorLambda";
+    private static string functionName = "SageMakerVectorLambda";
 
     static async Task Main(string[] args)
     {
@@ -48,11 +53,11 @@ public class PipelineWorkflow
                     .AddFilter<ConsoleLoggerProvider>("Microsoft", LogLevel.Trace))
             .ConfigureServices((_, services) =>
                 services.AddAWSService<IAmazonIdentityManagementService>()
-                    .AddAWSService<IAmazonEC2>()
-                    .AddAWSService<IAmazonSageMaker>()
-                    .AddAWSService<IAmazonSageMakerGeospatial>()
-                    .AddAWSService<IAmazonSQS>()
-                    .AddAWSService<IAmazonLambda>()
+                    .AddAWSService<IAmazonEC2>(new AWSOptions(){Region = RegionEndpoint.USWest2})
+                    .AddAWSService<IAmazonSageMaker>(new AWSOptions() { Region = RegionEndpoint.USWest2 })
+                    .AddAWSService<IAmazonSageMakerGeospatial>(new AWSOptions() { Region = RegionEndpoint.USWest2 })
+                    .AddAWSService<IAmazonSQS>(new AWSOptions() { Region = RegionEndpoint.USWest2 })
+                    .AddAWSService<IAmazonLambda>(new AWSOptions() { Region = RegionEndpoint.USWest2 })
                     .AddTransient<SageMakerWrapper>()
             )
             .Build();
@@ -60,13 +65,18 @@ public class PipelineWorkflow
         logger = LoggerFactory.Create(builder => { builder.AddConsole(); })
             .CreateLogger<PipelineWorkflow>();
 
+        ServicesSetup(host);
+       var queueUrl = await SetupQueue();
+        await SetupPipeline();
+        await ExecutePipeline(queueUrl);
+
     }
 
     /// <summary>
     /// Populate the services for use within the console application.
     /// </summary>
     /// <param name="host">The services host.</param>
-    private void ServicesSetup(IHost host)
+    private static void ServicesSetup(IHost host)
     {
         _sageMakerWrapper = host.Services.GetRequiredService<SageMakerWrapper>();
         _iamClient = host.Services.GetRequiredService<IAmazonIdentityManagementService>();
@@ -92,8 +102,6 @@ public class PipelineWorkflow
         });
 
         var defaultVpcId = defaultVpc.Vpcs.First().VpcId;
-
-
 
     }
 
@@ -157,37 +165,51 @@ public class PipelineWorkflow
     // snippet-end:[SageMaker.dotnetv3.CreateRole]
 
 
-    public async Task<string> SetupQueue()
+    public static async Task<string> SetupQueue()
     {
-        string queueName = "Sagemaker-Example-Queue";
+        string queueName = "SageMaker-Example-Queue";
 
-        // TODO: check if the queue already exists, only create it if it does not exist
-
-        var attrs = new Dictionary<string, string>
+        try
         {
-            {
-                QueueAttributeName.DelaySeconds,
-                "5"
-            },
-            {
-                QueueAttributeName.ReceiveMessageWaitTimeSeconds,
-                "5"
-            },
-            {
-                QueueAttributeName.VisibilityTimeout,
-                "300"
-            },
-        };
-
-        var request = new CreateQueueRequest
+            var queueInfo = await _sqsClient.GetQueueUrlAsync(new GetQueueUrlRequest()
+                { QueueName = queueName });
+            return queueInfo.QueueUrl;
+        }
+        catch (QueueDoesNotExistException)
         {
-            Attributes = attrs,
-            QueueName = queueName,
-        };
+            var attrs = new Dictionary<string, string>
+            {
+                {
+                    QueueAttributeName.DelaySeconds,
+                    "5"
+                },
+                {
+                    QueueAttributeName.ReceiveMessageWaitTimeSeconds,
+                    "5"
+                },
+                {
+                    QueueAttributeName.VisibilityTimeout,
+                    "300"
+                },
+            };
 
-        var response = await _sqsClient.CreateQueueAsync(request);
+            var request = new CreateQueueRequest
+            {
+                Attributes = attrs,
+                QueueName = queueName,
+            };
+
+            var response = await _sqsClient.CreateQueueAsync(request);
+
+            await ConnectLambda(response.QueueUrl);
+            return response.QueueUrl;
+        }
+    }
+
+    public static async Task ConnectLambda(string queueUrl)
+    {
         var queueAttributes = await _sqsClient.GetQueueAttributesAsync(
-            new GetQueueAttributesRequest() { QueueUrl = response.QueueUrl });
+            new GetQueueAttributesRequest() { QueueUrl = queueUrl, AttributeNames = new List<string>() { "All" }});
         var queueArn = queueAttributes.QueueARN;
         await _lambdaClient.CreateEventSourceMappingAsync(
             new CreateEventSourceMappingRequest()
@@ -196,20 +218,88 @@ public class PipelineWorkflow
                 FunctionName = functionName,
                 Enabled = true
             });
-        return response.QueueUrl;
     }
 
-    public async Task<string> SetupPipeline()
+    /// <summary>
+    /// Create a pipeline from some json.
+    /// </summary>
+    /// <returns>The ARN of the pipeline.</returns>
+    public static async Task<string> SetupPipeline()
     {
-        var pipelineJson = await _sageMakerClient.DescribePipelineAsync(
-            new DescribePipelineRequest()
-            {
-                PipelineName = "GeospatialEarthObservationPipeline"
-            });
-
-        await _sageMakerClient.CreatePipelineAsync(new CreatePipelineRequest()
+        try
         {
-            PipelineDefinition = pipelineJson.PipelineDefinition
-        })
+            var pipeline = await _sageMakerClient.DescribePipelineAsync(
+                new DescribePipelineRequest() { PipelineName = "SdkPipeline" });
+            return pipeline.PipelineArn;
+        }
+        catch (Amazon.SageMaker.Model.ResourceNotFoundException)
+        {
+            var pipelineJson = await File.ReadAllTextAsync("GeoSpacialPipeline.json");
+
+            var createResponse = await _sageMakerClient.CreatePipelineAsync(
+                new CreatePipelineRequest()
+                {
+                    PipelineDefinition = pipelineJson,
+                    PipelineDescription = "test pipeline from sdk",
+                    PipelineDisplayName = "SdkPipeline",
+                    PipelineName = "SdkPipeline",
+                    RoleArn =
+                        "arn:aws:iam::565846806325:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole"
+
+                });
+
+            return createResponse.PipelineArn;
+        }
+    }
+
+    public async static Task<string> ExecutePipeline(string queueUrl)
+    {
+        var inputConfig = new VectorEnrichmentJobInputConfig()
+        {
+            DataSourceConfig = new VectorEnrichmentJobDataSourceConfigInput()
+            {
+                S3Data = new VectorEnrichmentJobS3Data()
+                {
+                    S3Uri =
+                        "s3://sagemaker-us-west-2-565846806325/samplefiles/latlongtest.csv",
+                }
+            },
+            DocumentType = VectorEnrichmentJobDocumentType.CSV
+        };
+        var exportConfig = new ExportVectorEnrichmentJobOutputConfig()
+        {
+            S3Data = new VectorEnrichmentJobS3Data()
+            {
+                S3Uri = "s3://sagemaker-us-west-2-565846806325/outputfiles/"
+            }
+        };
+        var jobconfig = new VectorEnrichmentJobConfig()
+        {
+            ReverseGeocodingConfig = new ReverseGeocodingConfig()
+            {
+                XAttributeName = "Longitude",
+                YAttributeName = "Latitude"
+            }
+        };
+
+        var startExecutionResponse = await _sageMakerClient.StartPipelineExecutionAsync(
+            new StartPipelineExecutionRequest()
+            {
+                PipelineName = "SdkPipeline",
+                PipelineExecutionDisplayName = "test-execution2",
+                PipelineExecutionDescription = "test execution description",
+                PipelineParameters = new List<Parameter>()
+                {
+                    new Parameter() { Name = "parameter_queue_url", Value = queueUrl },
+                    new Parameter()
+                        { Name = "parameter_vej_input_config", Value = JsonSerializer.Serialize(inputConfig) },
+                    new Parameter()
+                        { Name = "parameter_vej_export_config", Value = JsonSerializer.Serialize(exportConfig)},
+                    new Parameter()
+                    { Name = "parameter_step_1_vej_config", Value = JsonSerializer.Serialize(jobconfig) }
+                }
+            });
+        Console.WriteLine($"Started execution: {startExecutionResponse.PipelineExecutionArn}.");
+        return startExecutionResponse.PipelineExecutionArn;
     }
 }
