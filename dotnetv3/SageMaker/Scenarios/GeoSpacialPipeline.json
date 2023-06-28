@@ -5,7 +5,7 @@
     {
       "Name": "parameter_execution_role",
       "Type": "String",
-      "DefaultValue": "arn:aws:iam::565846806325:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole"
+      "DefaultValue": ""
     },
     {
       "Name": "parameter_region",
@@ -15,7 +15,7 @@
     {
       "Name": "parameter_queue_url",
       "Type": "String",
-      "DefaultValue": "https://sqs.us-west-2.amazonaws.com/565846806325/geospatial-eoj-pipeline-queue2"
+      "DefaultValue": ""
     },
     {
       "Name": "parameter_vej_input_config",
@@ -55,7 +55,7 @@
         },
         "vej_name": "vej-pipeline-step-1"
       },
-      "FunctionArn": "arn:aws:lambda:us-west-2:565846806325:function:SageMakerVectorLambda",
+      "FunctionArn": "*FUNCTION_ARN*",
       "OutputParameters": [
         {
           "OutputName": "statusCode",
@@ -114,7 +114,7 @@
       "DependsOn": [
         "vej-callback-step"
       ],
-      "FunctionArn": "arn:aws:lambda:us-west-2:565846806325:function:SageMakerVectorLambda",
+      "FunctionArn": "*FUNCTION_ARN*",
       "OutputParameters": [
         {
           "OutputName": "statusCode",

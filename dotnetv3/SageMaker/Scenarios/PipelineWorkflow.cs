@@ -10,20 +10,24 @@ using Amazon.IdentityManagement;
 using Amazon.IdentityManagement.Model;
 using Amazon.Lambda;
 using Amazon.Lambda.Model;
+using Amazon.Runtime.Internal.Util;
+using Amazon.S3;
+using Amazon.S3.Model;
 using Amazon.SageMaker;
 using Amazon.SageMaker.Model;
 using Amazon.SageMakerGeospatial;
 using Amazon.SageMakerGeospatial.Model;
 using Amazon.SQS;
 using Amazon.SQS.Model;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Logging.Debug;
 using SageMakerActions;
-using Filter = Amazon.EC2.Model.Filter;
 using Host = Microsoft.Extensions.Hosting.Host;
+using ILogger = Microsoft.Extensions.Logging.ILogger;
 using ResourceNotFoundException = Amazon.Lambda.Model.ResourceNotFoundException;
 
 
@@ -34,14 +38,18 @@ public class PipelineWorkflow
     private static ILogger logger = null!;
     private static IAmazonIdentityManagementService _iamClient;
     private static SageMakerWrapper _sageMakerWrapper;
-    private static IAmazonEC2 _ec2Client;
     private static IAmazonSQS _sqsClient;
+    private static IAmazonS3 _s3Client;
     private static IAmazonLambda _lambdaClient;
     private static IAmazonSageMaker _sageMakerClient;
+    private static IConfiguration _configuration = null!;
 
     // TODO replace this with uploading the function directly
-    private static string functionArn = "arn:aws:lambda:us-west-2:565846806325:function:SageMakerVectorLambda";
-    private static string functionName = "SageMakerVectorLambda";
+    //private static string functionArn = "arn:aws:lambda:us-west-2:565846806325:function:SageMakerVectorLambda";
+    private static string lambdaFunctionName = "SageMakerExampleFunction";
+    private static string sageMakerRoleName = "SageMakerExampleRole";
+    private static string lambdaRoleName = "SageMakerExampleLambdaRole";
+
 
     static async Task Main(string[] args)
     {
@@ -57,18 +65,30 @@ public class PipelineWorkflow
                     .AddAWSService<IAmazonSageMaker>(new AWSOptions() { Region = RegionEndpoint.USWest2 })
                     .AddAWSService<IAmazonSageMakerGeospatial>(new AWSOptions() { Region = RegionEndpoint.USWest2 })
                     .AddAWSService<IAmazonSQS>(new AWSOptions() { Region = RegionEndpoint.USWest2 })
+                    .AddAWSService<IAmazonS3>(new AWSOptions() { Region = RegionEndpoint.USWest2 })
                     .AddAWSService<IAmazonLambda>(new AWSOptions() { Region = RegionEndpoint.USWest2 })
                     .AddTransient<SageMakerWrapper>()
-            )
+        )
+        .Build();
+
+        _configuration = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("settings.json") // Load settings from .json file.
+            .AddJsonFile("settings.local.json",
+                true) // Optionally, load local settings.
             .Build();
 
         logger = LoggerFactory.Create(builder => { builder.AddConsole(); })
             .CreateLogger<PipelineWorkflow>();
 
         ServicesSetup(host);
-       var queueUrl = await SetupQueue();
-        await SetupPipeline();
+        var lambdaRoleArn = await CreateLambdaRole();
+        var sageMakerRoleArn = await CreateSageMakerRole();
+        var functionArn = await SetupLambda(lambdaRoleArn);
+        var queueUrl = await SetupQueue();
+        await SetupPipeline(sageMakerRoleArn, functionArn);
         await ExecutePipeline(queueUrl);
+        await CleanupResources(queueUrl);
 
     }
 
@@ -80,94 +100,210 @@ public class PipelineWorkflow
     {
         _sageMakerWrapper = host.Services.GetRequiredService<SageMakerWrapper>();
         _iamClient = host.Services.GetRequiredService<IAmazonIdentityManagementService>();
-        _ec2Client = host.Services.GetRequiredService<IAmazonEC2>();
         _sqsClient = host.Services.GetRequiredService<IAmazonSQS>();
+        _s3Client = host.Services.GetRequiredService<IAmazonS3>();
         _lambdaClient = host.Services.GetRequiredService<IAmazonLambda>();
         _sageMakerClient = host.Services.GetRequiredService<IAmazonSageMaker>();
     }
 
-    public async Task SetupDomain()
+    /// <summary>
+    /// Set up the AWS Lambda, either by updating an existing function or creating a new function.
+    /// </summary>
+    /// <param name="roleArn">The role ARN to use for the Lambda function.</param>
+    /// <returns>The ARN of the function.</returns>
+    public static async Task<string> SetupLambda(string roleArn)
     {
-        var roleArn = CreateRole();
-
-        // TODO: create the domain if one does not already exist.
-        // Get the default Amazon VPC of your account
-        var defaultVpc = await _ec2Client.DescribeVpcsAsync(new DescribeVpcsRequest()
+        Console.WriteLine(new string('-', 80));
+        Console.WriteLine("Setting up the Lambda function for the pipeline.");
+        var handlerName = "SageMakerLambda::SageMakerLambda.SageMakerLambdaFunction::FunctionHandler";
+        try
         {
-            Filters = new List<Filter>()
+            var functionInfo = await _lambdaClient.GetFunctionAsync(new GetFunctionRequest()
             {
-                new Filter()
-                    { Name = "isDefault", Values = new List<string>() { "true" } }
-            },
-        });
+                FunctionName = lambdaFunctionName
+            });
 
-        var defaultVpcId = defaultVpc.Vpcs.First().VpcId;
+            var updateResponse = GetYesNoResponse($"The Lambda function {lambdaFunctionName} already exists, do you want to update it?");
 
+            if (updateResponse)
+            {
+                // Update the Lambda function.
+                using var zipMemoryStream = new MemoryStream(await File.ReadAllBytesAsync("SageMakerLambda.zip"));
+                await _lambdaClient.UpdateFunctionCodeAsync(
+                    new UpdateFunctionCodeRequest()
+                    {
+                        FunctionName = lambdaFunctionName,
+                        ZipFile = zipMemoryStream,
+                    });
+            }
+            Console.WriteLine(new string('-', 80));
+            return functionInfo.Configuration.FunctionArn;
+        }
+        catch (ResourceNotFoundException)
+        {
+            Console.WriteLine($"\tThe Lambda function {lambdaFunctionName} was not found, creating the new function.");
+
+            // Create the function if it does not already exist.
+            using var zipMemoryStream = new MemoryStream(await File.ReadAllBytesAsync("SageMakerLambda.zip"));
+            var createResult = await _lambdaClient.CreateFunctionAsync(
+                new CreateFunctionRequest()
+                {
+                    FunctionName = lambdaFunctionName,
+                    Runtime = Runtime.Dotnet6,
+                    Description = "SageMaker example function.",
+                    Code = new FunctionCode()
+                    {
+                        ZipFile = zipMemoryStream
+                    },
+                    Handler = handlerName,
+                    Role = roleArn,
+                });
+            Console.WriteLine(new string('-', 80));
+            return createResult.FunctionArn;
+        }
     }
 
-    // snippet-start:[SageMaker.dotnetv3.CreateRole]
     /// <summary>
-    /// Create a role to be used by SageMaker.
+    /// Create a role to be used by AWS Lambda. Does not create the role if it already exists.
     /// </summary>
     /// <returns>The role Amazon Resource Name (ARN).</returns>
-    public async Task<string> CreateRole()
+    public static async Task<string> CreateLambdaRole()
     {
-        // TODO: only create these resources if they do not already exist.
         Console.WriteLine(new string('-', 80));
-        Console.WriteLine("Creating a role to use with SageMaker and attaching managed policy AmazonSageMakerFullAccess.");
-        Console.WriteLine(new string('-', 80));
+        var roleArn = await GetRoleArnIfExists(lambdaRoleName);
+        if (!string.IsNullOrEmpty(roleArn))
+        {
+            return roleArn;
+        }
 
-        //var roleName = "_configuration[\"roleName\"]";
-        var roleName = "sagemakerroletest";
+        Console.WriteLine("Creating a role to for AWS Lambda to use.");
 
         var assumeRolePolicy = "{" +
-                               "\"Version\": \"2012-10-17\"," +
-                               "\"Statement\": [{" +
-                               "\"Effect\": \"Allow\"," +
-                               "\"Principal\": {" +
-                               $"\"Service\": \"[" +
-                                    "\"sagemaker.amazonaws.com\"" +
-                                    "\"sagemaker-geospatial.amazonaws.com\"" +
-                                    "\"lambda.amazonaws.com\"" +
-                                    "\"s3.amazonaws.com\"" +
-                                    "]" +
-                               "}," +
-                               "\"Action\": \"sts:AssumeRole\"" +
-                               "}]" +
-                               "}";
+                                        "\"Version\": \"2012-10-17\"," +
+                                        "\"Statement\": [{" +
+                                            "\"Effect\": \"Allow\"," +
+                                            "\"Principal\": {" +
+                                                $"\"Service\": [" +
+                                                    "\"sagemaker.amazonaws.com\"," +
+                                                    "\"sagemaker-geospatial.amazonaws.com\"," +
+                                                    "\"lambda.amazonaws.com\"," +
+                                                    "\"s3.amazonaws.com\"" +
+                                                "]" +
+                                            "}," +
+                                            "\"Action\": \"sts:AssumeRole\"" +
+                                        "}]" +
+                                    "}";
 
         var roleResult = await _iamClient!.CreateRoleAsync(
             new CreateRoleRequest()
             {
                 AssumeRolePolicyDocument = assumeRolePolicy,
                 Path = "/",
-                RoleName = roleName
+                RoleName = lambdaRoleName
             });
 
         await _iamClient.AttachRolePolicyAsync(
             new AttachRolePolicyRequest()
             {
                 PolicyArn = "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess",
-                RoleName = roleName
+                RoleName = lambdaRoleName
+            });
+        await _iamClient.AttachRolePolicyAsync(
+            new AttachRolePolicyRequest()
+            {
+                PolicyArn = "arn:aws:iam::aws:policy/service-role/AmazonSageMakerGeospatialFullAccess",
+                RoleName = lambdaRoleName
+            });
+        await _iamClient.AttachRolePolicyAsync(
+            new AttachRolePolicyRequest()
+            {
+                PolicyArn = "arn:aws:iam::aws:policy/service-role/AmazonSageMakerServiceCatalogProductsLambdaServiceRolePolicy",
+                RoleName = lambdaRoleName
+            });
+        await _iamClient.AttachRolePolicyAsync(
+            new AttachRolePolicyRequest()
+            {
+                PolicyArn = "arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole",
+                RoleName = lambdaRoleName
+            });
+
+
+        // Allow time for the role to be ready.
+        Thread.Sleep(10000);
+        Console.WriteLine(new string('-', 80));
+
+        return roleResult.Role.Arn;
+    }
+
+
+    /// <summary>
+    /// Create a role to be used by SageMaker.
+    /// </summary>
+    /// <returns>The role Amazon Resource Name (ARN).</returns>
+    public static async Task<string> CreateSageMakerRole()
+    {
+        Console.WriteLine(new string('-', 80));
+        var roleArn = await GetRoleArnIfExists(sageMakerRoleName);
+        if (!string.IsNullOrEmpty(roleArn))
+        {
+            return roleArn;
+        }
+
+        Console.WriteLine("Creating a role to use with SageMaker.");
+
+        var assumeRolePolicy = "{" +
+                                        "\"Version\": \"2012-10-17\"," +
+                                        "\"Statement\": [{" +
+                                            "\"Effect\": \"Allow\"," +
+                                            "\"Principal\": {" +
+                                                $"\"Service\": [" +
+                                                    "\"sagemaker.amazonaws.com\"," +
+                                                    "\"sagemaker-geospatial.amazonaws.com\"," +
+                                                    "\"lambda.amazonaws.com\"," +
+                                                    "\"s3.amazonaws.com\"" +
+                                                "]" +
+                                            "}," +
+                                            "\"Action\": \"sts:AssumeRole\"" +
+                                        "}]" +
+                                    "}";
+
+        var roleResult = await _iamClient!.CreateRoleAsync(
+            new CreateRoleRequest()
+            {
+                AssumeRolePolicyDocument = assumeRolePolicy,
+                Path = "/",
+                RoleName = sageMakerRoleName
+            });
+
+        await _iamClient.AttachRolePolicyAsync(
+            new AttachRolePolicyRequest()
+            {
+                PolicyArn = "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess",
+                RoleName = sageMakerRoleName
             });
         await _iamClient.AttachRolePolicyAsync(
             new AttachRolePolicyRequest()
             {
                 PolicyArn = "arn:aws:iam::aws:policy/AmazonSageMakerGeospatialFullAccess",
-                RoleName = roleName
+                RoleName = sageMakerRoleName
             });
-        // todo: add inline policy with other permissions?
 
         // Allow time for the role to be ready.
         Thread.Sleep(10000);
+        Console.WriteLine(new string('-', 80));
         return roleResult.Role.Arn;
     }
-    // snippet-end:[SageMaker.dotnetv3.CreateRole]
 
-
+    /// <summary>
+    /// Set up the SQS queue to use with the pipeline.
+    /// </summary>
+    /// <returns>The URL for the queue.</returns>
     public static async Task<string> SetupQueue()
     {
-        string queueName = "SageMaker-Example-Queue";
+        Console.WriteLine(new string('-', 80));
+        string queueName = _configuration["queueName"];
+
+        Console.WriteLine($"Setting up queue {queueName}.");
 
         try
         {
@@ -202,12 +338,21 @@ public class PipelineWorkflow
             var response = await _sqsClient.CreateQueueAsync(request);
 
             await ConnectLambda(response.QueueUrl);
+            Console.WriteLine(new string('-', 80));
             return response.QueueUrl;
         }
     }
 
+    /// <summary>
+    /// Connect the queue to the lambda as an event source.
+    /// </summary>
+    /// <param name="queueUrl">The URL for the queue.</param>
+    /// <returns>Async task.</returns>
     public static async Task ConnectLambda(string queueUrl)
     {
+        Console.WriteLine(new string('-', 80));
+        Console.WriteLine($"Connecting lambda and queue for the pipeline.");
+
         var queueAttributes = await _sqsClient.GetQueueAttributesAsync(
             new GetQueueAttributesRequest() { QueueUrl = queueUrl, AttributeNames = new List<string>() { "All" }});
         var queueArn = queueAttributes.QueueARN;
@@ -215,91 +360,199 @@ public class PipelineWorkflow
             new CreateEventSourceMappingRequest()
             {
                 EventSourceArn = queueArn,
-                FunctionName = functionName,
+                FunctionName = lambdaFunctionName,
                 Enabled = true
             });
+        Console.WriteLine(new string('-', 80));
     }
 
     /// <summary>
     /// Create a pipeline from some json.
     /// </summary>
+    /// <param name="roleArn">The ARN of the role for the pipeline.</param>
+    /// <param name="functionArn">The ARN of the Lambda function for the pipeline.</param>
     /// <returns>The ARN of the pipeline.</returns>
-    public static async Task<string> SetupPipeline()
+    public static async Task<string> SetupPipeline(string roleArn, string functionArn)
     {
+        Console.WriteLine(new string('-', 80));
+        Console.WriteLine($"Setting up the pipeline.");
+
+        var pipelineName = _configuration["pipelineName"];
+        var pipelineJson = await File.ReadAllTextAsync("GeoSpacialPipeline.json");
+
+        // Add the correct function ARN instead of the placeholder.
+        pipelineJson = pipelineJson.Replace("*FUNCTION_ARN*", functionArn);
+
+        var pipelineArn = await _sageMakerWrapper.SetupPipeline(pipelineJson, roleArn, pipelineName,
+            "sdk example pipeline", pipelineName);
+
+        Console.WriteLine($"\tPipeline set up with ARN {pipelineArn}.");
+        Console.WriteLine(new string('-', 80));
+        
+        return pipelineArn;
+    }
+
+    /// <summary>
+    /// Start a pipeline execution with job configurations.
+    /// </summary>
+    /// <param name="queueUrl">The URL for the queue used in the pipeline.</param>
+    /// <returns>The pipeline execution ARN.</returns>
+    public static async Task<string> ExecutePipeline(string queueUrl)
+    {
+        Console.WriteLine(new string('-', 80));
+        Console.WriteLine($"Starting pipeline execution.");
+
+        var pipelineName = _configuration["pipelineName"];
+        var bucketName = _configuration["bucketName"];
+        var input = $"s3://{bucketName}/samplefiles/latlongtest.csv";
+        var output = $"s3://{bucketName}/outputfiles/";
+
+        var executionARN =
+            await _sageMakerWrapper.ExecutePipeline(queueUrl, input, output,
+                pipelineName);
+
+        Console.WriteLine($"\tExecution started with ARN {executionARN}.");
+        Console.WriteLine(new string('-', 80));
+
+        return executionARN;
+    }
+
+    /// <summary>
+    /// Clean up the resources from the scenario.
+    /// </summary>
+    /// <param name="queueUrl">The URL of the queue to clean up.</param>
+    /// <returns>Async task.</returns>
+    private static async Task CleanupResources(string queueUrl)
+    {
+        Console.WriteLine(new string('-', 80));
+        Console.WriteLine($"Clean up resources.");
+
+        var pipelineName = _configuration["pipelineName"];
+        if (GetYesNoResponse($"\tDelete pipeline {pipelineName}? (y/n)"))
+        {
+            Console.WriteLine($"\tDeleting pipeline.");
+            // Delete the queue.
+            await _sageMakerClient.DeletePipelineAsync(
+                new DeletePipelineRequest() { PipelineName = pipelineName });
+        }
+
+        if (GetYesNoResponse($"\tDelete queue {queueUrl}? (y/n)"))
+        {
+            Console.WriteLine($"\tDeleting queue.");
+            // Delete the queue.
+            await _sqsClient.DeleteQueueAsync(new DeleteQueueRequest(queueUrl));
+        }
+
+        var bucketName = _configuration["bucketName"];
+        if (GetYesNoResponse($"\tDelete Amazon S3 bucket {bucketName}? (y/n)"))
+        {
+            Console.WriteLine($"\tDeleting bucket.");
+            // Delete all objects in the bucket.
+            var deleteList = await _s3Client.ListObjectsV2Async(new ListObjectsV2Request()
+            {
+                BucketName = bucketName
+            });
+            await _s3Client.DeleteObjectsAsync(new DeleteObjectsRequest()
+            {
+                BucketName = bucketName,
+                Objects = deleteList.S3Objects
+                    .Select(o => new KeyVersion { Key = o.Key }).ToList()
+            });
+            // Now delete the bucket.
+            await _s3Client.DeleteBucketAsync(new DeleteBucketRequest()
+            {
+                BucketName = bucketName
+            });
+        }
+
+        if (GetYesNoResponse($"\tDelete role {lambdaRoleName}? (y/n)"))
+        {
+            Console.WriteLine($"\tDetaching policies and deleting role.");
+
+            await _iamClient!.DetachRolePolicyAsync(new DetachRolePolicyRequest()
+            {
+                RoleName = lambdaRoleName,
+                PolicyArn = "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess",
+            });
+
+            await _iamClient!.DetachRolePolicyAsync(new DetachRolePolicyRequest()
+            {
+                RoleName = lambdaRoleName,
+                PolicyArn = "arn:aws:iam::aws:policy/AmazonSageMakerGeospatialFullAccess",
+            });
+
+            await _iamClient!.DetachRolePolicyAsync(new DetachRolePolicyRequest()
+            {
+                RoleName = lambdaRoleName,
+                PolicyArn = "arn:aws:iam::aws:policy/AWSLambdaSQSQueueExecutionRole",
+            });
+
+            await _iamClient!.DeleteRoleAsync(new DeleteRoleRequest()
+            {
+                RoleName = lambdaRoleName
+            });
+        }
+
+        if (GetYesNoResponse($"\tDelete role {sageMakerRoleName}? (y/n)"))
+        {
+            Console.WriteLine($"\tDetaching policies and deleting role.");
+
+            await _iamClient!.DetachRolePolicyAsync(new DetachRolePolicyRequest()
+            {
+                RoleName = sageMakerRoleName,
+                PolicyArn = "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess",
+            });
+
+            await _iamClient!.DetachRolePolicyAsync(new DetachRolePolicyRequest()
+            {
+                RoleName = sageMakerRoleName,
+                PolicyArn = "arn:aws:iam::aws:policy/AmazonSageMakerGeospatialFullAccess",
+            });
+
+            await _iamClient!.DeleteRoleAsync(new DeleteRoleRequest()
+            {
+                RoleName = sageMakerRoleName
+            });
+        }
+
+        Console.WriteLine(new string('-', 80));
+    }
+
+    /// <summary>
+    /// Helper method to get a role's ARN if it already exists.
+    /// </summary>
+    /// <param name="roleName">The name of the AWS Identity and Access Management (IAM) Role to look for.</param>
+    /// <returns>The role ARN if it exists, otherwise an empty string.</returns>
+    private static async Task<string> GetRoleArnIfExists(string roleName)
+    {
+        Console.WriteLine($"Checking for role named {roleName}.");
+
         try
         {
-            var pipeline = await _sageMakerClient.DescribePipelineAsync(
-                new DescribePipelineRequest() { PipelineName = "SdkPipeline" });
-            return pipeline.PipelineArn;
+            var existingRole = await _iamClient.GetRoleAsync(new GetRoleRequest()
+            {
+                RoleName = lambdaRoleName
+            });
+            return existingRole.Role.Arn;
         }
-        catch (Amazon.SageMaker.Model.ResourceNotFoundException)
+        catch (NoSuchEntityException)
         {
-            var pipelineJson = await File.ReadAllTextAsync("GeoSpacialPipeline.json");
-
-            var createResponse = await _sageMakerClient.CreatePipelineAsync(
-                new CreatePipelineRequest()
-                {
-                    PipelineDefinition = pipelineJson,
-                    PipelineDescription = "test pipeline from sdk",
-                    PipelineDisplayName = "SdkPipeline",
-                    PipelineName = "SdkPipeline",
-                    RoleArn =
-                        "arn:aws:iam::565846806325:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole"
-
-                });
-
-            return createResponse.PipelineArn;
+            return string.Empty;
         }
     }
 
-    public async static Task<string> ExecutePipeline(string queueUrl)
+    /// <summary>
+    /// Helper method to get a yes or no response from the user.
+    /// </summary>
+    /// <param name="question">The question string to print on the console.</param>
+    /// <returns>True if the user responds with a yes.</returns>
+    private static bool GetYesNoResponse(string question)
     {
-        var inputConfig = new VectorEnrichmentJobInputConfig()
-        {
-            DataSourceConfig = new VectorEnrichmentJobDataSourceConfigInput()
-            {
-                S3Data = new VectorEnrichmentJobS3Data()
-                {
-                    S3Uri =
-                        "s3://sagemaker-us-west-2-565846806325/samplefiles/latlongtest.csv",
-                }
-            },
-            DocumentType = VectorEnrichmentJobDocumentType.CSV
-        };
-        var exportConfig = new ExportVectorEnrichmentJobOutputConfig()
-        {
-            S3Data = new VectorEnrichmentJobS3Data()
-            {
-                S3Uri = "s3://sagemaker-us-west-2-565846806325/outputfiles/"
-            }
-        };
-        var jobconfig = new VectorEnrichmentJobConfig()
-        {
-            ReverseGeocodingConfig = new ReverseGeocodingConfig()
-            {
-                XAttributeName = "Longitude",
-                YAttributeName = "Latitude"
-            }
-        };
-
-        var startExecutionResponse = await _sageMakerClient.StartPipelineExecutionAsync(
-            new StartPipelineExecutionRequest()
-            {
-                PipelineName = "SdkPipeline",
-                PipelineExecutionDisplayName = "test-execution2",
-                PipelineExecutionDescription = "test execution description",
-                PipelineParameters = new List<Parameter>()
-                {
-                    new Parameter() { Name = "parameter_queue_url", Value = queueUrl },
-                    new Parameter()
-                        { Name = "parameter_vej_input_config", Value = JsonSerializer.Serialize(inputConfig) },
-                    new Parameter()
-                        { Name = "parameter_vej_export_config", Value = JsonSerializer.Serialize(exportConfig)},
-                    new Parameter()
-                    { Name = "parameter_step_1_vej_config", Value = JsonSerializer.Serialize(jobconfig) }
-                }
-            });
-        Console.WriteLine($"Started execution: {startExecutionResponse.PipelineExecutionArn}.");
-        return startExecutionResponse.PipelineExecutionArn;
+        Console.WriteLine(question);
+        var ynResponse = Console.ReadLine();
+        var response = ynResponse != null &&
+                       ynResponse.Equals("y",
+                           StringComparison.InvariantCultureIgnoreCase);
+        return response;
     }
 }

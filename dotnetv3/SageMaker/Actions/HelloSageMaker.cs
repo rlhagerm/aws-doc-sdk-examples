@@ -1,59 +1,43 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier:  Apache-2.0
 
-using Amazon.EC2;
-using Amazon.EC2.Model;
-using Amazon.IdentityManagement;
-using Amazon.IdentityManagement.Model;
+// snippet-start:[SageMaker.dotnetv3.HelloSageMaker]
+
 using Amazon.SageMaker;
-using Amazon.SageMakerGeospatial;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Console;
-using Microsoft.Extensions.Logging.Debug;
-using Host = Microsoft.Extensions.Hosting.Host;
+using Amazon.SageMaker.Model;
 
 namespace SageMakerActions;
 
-public class HelloSageMaker
+public static class HelloSageMaker
 {
-    private static ILogger logger = null!;
-    private IAmazonIdentityManagementService _iamClient;
-    private SageMakerWrapper _sageMakerWrapper;
-    private IAmazonEC2 _ec2Client;
-
     static async Task Main(string[] args)
     {
-        // Set up dependency injection for the Amazon service.
-        using var host = Host.CreateDefaultBuilder(args)
-            .ConfigureLogging(logging =>
-                logging.AddFilter("System", LogLevel.Debug)
-                    .AddFilter<DebugLoggerProvider>("Microsoft", LogLevel.Information)
-                    .AddFilter<ConsoleLoggerProvider>("Microsoft", LogLevel.Trace))
-            .ConfigureServices((_, services) =>
-                services.AddAWSService<IAmazonIdentityManagementService>()
-                    .AddAWSService<IAmazonEC2>()
-                    .AddAWSService<IAmazonSageMaker>()
-                    .AddAWSService<IAmazonSageMakerGeospatial>()
-                .AddTransient<SageMakerWrapper>()
-            )
-            .Build();
+        var sageMakerClient = new AmazonSageMakerClient();
 
-        logger = LoggerFactory.Create(builder => { builder.AddConsole(); })
-            .CreateLogger<HelloSageMaker>();
+        Console.WriteLine($"Hello Amazon SageMaker! Let's list some of your notebook instances:");
+        Console.WriteLine();
 
+        // You can use await and any of the async methods to get a response.
+        // Let's get the first five notebook instances.
+        var response = await sageMakerClient.ListNotebookInstancesAsync(
+            new ListNotebookInstancesRequest()
+            {
+                MaxResults = 5
+            });
+
+        if (!response.NotebookInstances.Any())
+        {
+            Console.WriteLine($"No notebook instances found.");
+            Console.WriteLine("See https://docs.aws.amazon.com/sagemaker/latest/dg/howitworks-create-ws.html to create one.");
+        }
+        
+        foreach (var notebookInstance in response.NotebookInstances)
+        {
+            Console.WriteLine($"\tInstance: {notebookInstance.NotebookInstanceName}");
+            Console.WriteLine($"\tArn: {notebookInstance.NotebookInstanceArn}");
+            Console.WriteLine($"\tCreation Date: {notebookInstance.CreationTime.ToShortDateString()}");
+            Console.WriteLine();
+        }
     }
-
-    /// <summary>
-    /// Populate the services for use within the console application.
-    /// </summary>
-    /// <param name="host">The services host.</param>
-    private void ServicesSetup(IHost host)
-    {
-        _sageMakerWrapper = host.Services.GetRequiredService<SageMakerWrapper>();
-        _iamClient = host.Services.GetRequiredService<IAmazonIdentityManagementService>();
-        _ec2Client = host.Services.GetRequiredService<IAmazonEC2>();
-    }
-
 }
+// snippet-end:[SageMaker.dotnetv3.HelloSageMaker]

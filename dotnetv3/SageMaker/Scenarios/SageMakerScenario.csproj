@@ -7,11 +7,26 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+	<ItemGroup>
+		<Content Include="settings.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+		<Content Include="settings.*.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<DependentUpon>settings.json</DependentUpon>
+		</Content>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Remove="settings.local.json" />
+	</ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="AWSSDK.EC2" Version="3.7.137.1" />
     <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="3.7.2" />
     <PackageReference Include="AWSSDK.IdentityManagement" Version="3.7.101.4" />
     <PackageReference Include="AWSSDK.Lambda" Version="3.7.111.5" />
+    <PackageReference Include="AWSSDK.S3" Version="3.7.106.1" />
     <PackageReference Include="AWSSDK.SageMaker" Version="3.7.134.2" />
     <PackageReference Include="AWSSDK.SageMakerGeospatial" Version="3.7.102.15" />
     <PackageReference Include="AWSSDK.SQS" Version="3.7.103.4" />
@@ -26,6 +41,9 @@
   <ItemGroup>
     <None Update="GeoSpacialPipeline.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="SageMakerLambda.zip">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 

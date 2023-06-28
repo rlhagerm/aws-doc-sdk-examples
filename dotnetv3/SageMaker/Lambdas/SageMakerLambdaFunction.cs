@@ -1,7 +1,7 @@
-using System.Net;
-using System.Text;
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier:  Apache-2.0
+
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Amazon.Lambda.Core;
 using Amazon.Lambda.SQSEvents;
 using Amazon.SageMaker;
@@ -9,63 +9,40 @@ using Amazon.SageMaker.Model;
 using Amazon.SageMakerGeospatial;
 using Amazon.SageMakerGeospatial.Model;
 
-
 // Assembly attribute to enable the Lambda function's JSON input to be converted into a .NET class.
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.SystemTextJson.DefaultLambdaJsonSerializer))]
 
-namespace SageMakerGeoSpacialLambda;
+namespace SageMakerLambda;
 
-public class Function
+/// <summary>
+/// The AWS Lambda with a function handler for the Amazon SageMaker pipeline.
+/// </summary>
+public class SageMakerLambdaFunction
 {
     /// <summary>
-    /// Default constructor. This constructor is used by Lambda to construct the instance. When invoked in a Lambda environment
+    /// Default constructor. This constructor is used by AWS Lambda to construct the instance. When invoked in a Lambda environment
     /// the AWS credentials will come from the IAM role associated with the function and the AWS region will be set to the
     /// region the Lambda function is executed in.
     /// </summary>
-    public Function()
+    public SageMakerLambdaFunction()
     {
-
     }
 
-    ///// <summary>
-    ///// This method is called for every Lambda invocation. This method takes in an SQS event object and can be used 
-    ///// to respond to SQS messages.
-    ///// </summary>
-    ///// <param name="evnt"></param>
-    ///// <param name="context"></param>
-    ///// <returns></returns>
-    //public async Task FunctionHandler(SQSEvent evnt, ILambdaContext context)
-    //{
-    //    // Get a client
-    //    context.Logger.LogInformation("queue handler");
-    //    var geoSpacialClient = new AmazonSageMakerGeospatialClient();
-    //    var sageMakerClient = new AmazonSageMakerClient();
-    //    context.Logger.LogInformation(JsonSerializer.Serialize(evnt));
-    //    context.Logger.LogInformation(JsonSerializer.Serialize(context));
-    //    foreach (var message in evnt.Records)
-    //    {
-    //        await ProcessMessageAsync(message, context, geoSpacialClient, sageMakerClient);
-    //    }
-    //}
-
     /// <summary>
-    /// This method is called for every Lambda invocation. This method takes in an SQS event object and can be used 
-    /// to respond to SQS messages.
+    /// The AWS Lambda function handler that processes events from the SageMaker pipeline and starts a job or export.
     /// </summary>
-    /// <param name="evnt"></param>
-    /// <param name="context"></param>
-    /// <returns></returns>
+    /// <param name="request">The custom SageMaker pipeline request object.</param>
+    /// <param name="context">The Lambda context.</param>
+    /// <returns>The dictionary of output parameters.</returns>
     public async Task<Dictionary<string, string>> FunctionHandler(PipelineRequest request, ILambdaContext context)
     {
-        // Get a client
         var geoSpacialClient = new AmazonSageMakerGeospatialClient();
         var sageMakerClient = new AmazonSageMakerClient();
-        context.Logger.LogInformation("start handler");
-        context.Logger.LogInformation(JsonSerializer.Serialize(request));
-        context.Logger.LogInformation(JsonSerializer.Serialize(context));
+        var responseDictionary = new Dictionary<string, string>();
+        context.Logger.LogInformation("Function handler started with request: " + JsonSerializer.Serialize(request));
         if (request.Records != null && request.Records.Any())
         {
-            context.Logger.LogInformation("Records found, this is a queue event");
+            context.Logger.LogInformation("Records found, this is a queue event. Processing the queue records.");
             foreach (var message in request.Records)
             {
                 await ProcessMessageAsync(message, context, geoSpacialClient, sageMakerClient);
@@ -73,7 +50,7 @@ public class Function
         }
         else if (!string.IsNullOrEmpty(request.vej_export_config))
         {
-            context.Logger.LogInformation("export found, this is an export");
+            context.Logger.LogInformation("Export configuration found, this is an export. Start the VEJ export job.");
 
             var outputConfig =
                 JsonSerializer.Deserialize<ExportVectorEnrichmentJobOutputConfig>(
@@ -86,22 +63,21 @@ public class Function
                     ExecutionRoleArn = request.Role,
                     OutputConfig = outputConfig
                 });
-            context.Logger.LogInformation($"export response: {JsonSerializer.Serialize(exportResponse)}");
-            var response3 = new Dictionary<string, string>
+            context.Logger.LogInformation($"Export response: {JsonSerializer.Serialize(exportResponse)}");
+            responseDictionary = new Dictionary<string, string>
             {
                 { "export_eoj_status", exportResponse.ExportStatus.ToString() },
                 { "vej_arn", exportResponse.Arn }
             };
-            return response3;
         }
         else if (!string.IsNullOrEmpty(request.vej_name))
         {
-            context.Logger.LogInformation("starting a job");
-            var inputconfig =
+            context.Logger.LogInformation("Vector Enrichment Job name found, starting the job.");
+            var inputConfig =
                 JsonSerializer.Deserialize<VectorEnrichmentJobInputConfig>(
                     request.vej_input_config);
 
-            var jobconfig =
+            var jobConfig =
                 JsonSerializer.Deserialize<VectorEnrichmentJobConfig>(
                     request.vej_config);
 
@@ -109,29 +85,29 @@ public class Function
                 new StartVectorEnrichmentJobRequest()
                 {
                     ExecutionRoleArn = request.Role,
-                    InputConfig = inputconfig,
+                    InputConfig = inputConfig,
                     Name = request.vej_name,
-                    JobConfig = jobconfig
+                    JobConfig = jobConfig
 
                 });
-            context.Logger.LogInformation(JsonSerializer.Serialize(jobResponse));
-            var response = new Dictionary<string, string>
+            context.Logger.LogInformation("Job response: " + JsonSerializer.Serialize(jobResponse));
+            responseDictionary = new Dictionary<string, string>
             {
                 { "vej_arn", jobResponse.Arn },
                 { "statusCode", jobResponse.HttpStatusCode.ToString() }
             };
-            return response;
         }
-
-        
-        var response2 = new Dictionary<string, string>
-        {
-            //{ "vej_arn", jobResponse.Arn },
-            //{ "statusCode", jobResponse.HttpStatusCode.ToString() }
-        };
-        return response2;
+        return responseDictionary;
     }
 
+    /// <summary>
+    /// Process a queue message and check the status of a SageMaker job.
+    /// </summary>
+    /// <param name="message">The queue message.</param>
+    /// <param name="context">The Lambda context.</param>
+    /// <param name="geoClient">The SageMaker GeoSpacial client.</param>
+    /// <param name="sageMakerClient">The SageMaker client.</param>
+    /// <returns>Async task.</returns>
     private async Task ProcessMessageAsync(SQSEvent.SQSMessage message, ILambdaContext context, 
         AmazonSageMakerGeospatialClient geoClient, AmazonSageMakerClient sageMakerClient)
     {
@@ -139,23 +115,24 @@ public class Function
         
         // Get information about the SageMaker job.
         var payload = JsonSerializer.Deserialize<QueuePayload>(message.Body);
-        context.Logger.LogInformation($"payload token {payload.token}");
+        context.Logger.LogInformation($"Payload token {payload.token}");
         var token = payload.token;
 
         if (payload.arguments.ContainsKey("vej_arn"))
         {
+            // Use the job ARN and the token to get the job status.
             var job_arn = payload.arguments["vej_arn"];
-            context.Logger.LogInformation($"token: {token}, arn {job_arn}");
+            context.Logger.LogInformation($"Token: {token}, arn {job_arn}");
 
             var jobInfo = geoClient.GetVectorEnrichmentJobAsync(
                 new GetVectorEnrichmentJobRequest()
                 {
                     Arn = job_arn
                 });
-            context.Logger.LogInformation(JsonSerializer.Serialize(jobInfo));
+            context.Logger.LogInformation("Job info: " + JsonSerializer.Serialize(jobInfo));
             if (jobInfo.Result.Status == VectorEnrichmentJobStatus.COMPLETED)
             {
-                context.Logger.LogInformation($"Status Completed, resuming pipeline...");
+                context.Logger.LogInformation($"Status completed, resuming pipeline...");
                 await sageMakerClient.SendPipelineExecutionStepSuccessAsync(
                     new SendPipelineExecutionStepSuccessRequest()
                     {
@@ -179,11 +156,11 @@ public class Function
             }
             else if (jobInfo.Result.Status == VectorEnrichmentJobStatus.IN_PROGRESS)
             {
+                // Put this message back in the queue to reprocess later.
                 context.Logger.LogInformation(
                     $"Status still in progress, check back later.");
                 throw new("Job still running.");
             }
         }
-
     }
 }
