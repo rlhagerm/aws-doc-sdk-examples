@@ -3,29 +3,28 @@
 
 using Microsoft.Extensions.Configuration;
 
-namespace SupportTests
+namespace SageMakerTests;
+
+public class SageMakerTests
 {
-    public class ServiceTests
+    private readonly IConfiguration _configuration;
+
+    /// <summary>
+    /// Constructor for the test class.
+    /// </summary>
+    public SageMakerTests()
     {
-        private readonly IConfiguration _configuration;
+        _configuration = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("testsettings.json") // Load test settings from .json file.
+            .AddJsonFile("testsettings.local.json",
+                true) // Optionally load local settings.
+            .Build();
+    }
 
-        /// <summary>
-        /// Constructor for the test class.
-        /// </summary>
-        public ServiceTests()
-        {
-            _configuration = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("testsettings.json") // Load test settings from .json file.
-                .AddJsonFile("testsettings.local.json",
-                    true) // Optionally load local settings.
-                .Build();
-        }
+    [Fact]
+    public void Test1()
+    {
 
-        [Fact]
-        public void Test1()
-        {
-
-        }
     }
 }

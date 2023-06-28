@@ -123,7 +123,7 @@ public class PipelineWorkflow
                 FunctionName = lambdaFunctionName
             });
 
-            var updateResponse = GetYesNoResponse($"The Lambda function {lambdaFunctionName} already exists, do you want to update it?");
+            var updateResponse = GetYesNoResponse($"\tThe Lambda function {lambdaFunctionName} already exists, do you want to update it?");
 
             if (updateResponse)
             {
@@ -136,6 +136,7 @@ public class PipelineWorkflow
                         ZipFile = zipMemoryStream,
                     });
             }
+            Console.WriteLine("Lambda created with ARN {.");
             Console.WriteLine(new string('-', 80));
             return functionInfo.Configuration.FunctionArn;
         }
