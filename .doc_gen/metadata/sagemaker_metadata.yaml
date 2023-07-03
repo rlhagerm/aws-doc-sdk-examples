@@ -14,8 +14,8 @@ sagemaker_Hello:
             - description:
               snippet_tags:
                 - SageMaker.dotnetv3.HelloSageMaker
-    services:
-      sagemaker: { ListNotebookInstances }
+  services:
+    sagemaker: {ListNotebookInstances}
 sagemaker_CreatePipeline:
   title: Create or update a pipeline in &SM; using an &AWS; SDK
   title_abbrev: Create pipeline
@@ -292,7 +292,7 @@ sagemaker_Scenario_Pipelines:
   languages:
     .NET:
       versions:
-        - sdk_version: 1
+        - sdk_version: 3
           github: dotnetv3/SageMaker
           excerpts:
             - description: Create a class that wraps &SM; operations.
@@ -303,6 +303,6 @@ sagemaker_Scenario_Pipelines:
                 - SageMaker.dotnetv3.SagemakerLambda
             - description: Run an interactive scenario at a command prompt.
               snippet_tags:
-                - ESageMaker.dotnetv3.SagemakerPipelineScenario
+                - SageMaker.dotnetv3.SagemakerPipelineScenario
   services:
     sagemaker: {CreatePipeline, UpdatePipeline, StartPipelineExecution, DescribePipelineExecution, DeletePipeline}
