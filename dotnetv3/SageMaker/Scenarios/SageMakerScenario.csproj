@@ -39,8 +39,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="GeoSpacialPipeline.json">
+    <None Update="GeoSpatialPipeline.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="latlongtest.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="SageMakerLambda.zip">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

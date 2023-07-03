@@ -1,6 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier:  Apache-2.0
 
+// snippet-start:[SageMaker.dotnetv3.SagemakerLambda]
+
 using System.Text.Json;
 using Amazon.Lambda.Core;
 using Amazon.Lambda.SQSEvents;
@@ -36,7 +38,7 @@ public class SageMakerLambdaFunction
     /// <returns>The dictionary of output parameters.</returns>
     public async Task<Dictionary<string, string>> FunctionHandler(PipelineRequest request, ILambdaContext context)
     {
-        var geoSpacialClient = new AmazonSageMakerGeospatialClient();
+        var geoSpatialClient = new AmazonSageMakerGeospatialClient();
         var sageMakerClient = new AmazonSageMakerClient();
         var responseDictionary = new Dictionary<string, string>();
         context.Logger.LogInformation("Function handler started with request: " + JsonSerializer.Serialize(request));
@@ -45,7 +47,7 @@ public class SageMakerLambdaFunction
             context.Logger.LogInformation("Records found, this is a queue event. Processing the queue records.");
             foreach (var message in request.Records)
             {
-                await ProcessMessageAsync(message, context, geoSpacialClient, sageMakerClient);
+                await ProcessMessageAsync(message, context, geoSpatialClient, sageMakerClient);
             }
         }
         else if (!string.IsNullOrEmpty(request.vej_export_config))
@@ -56,7 +58,7 @@ public class SageMakerLambdaFunction
                 JsonSerializer.Deserialize<ExportVectorEnrichmentJobOutputConfig>(
                     request.vej_export_config);
 
-            var exportResponse = await geoSpacialClient.ExportVectorEnrichmentJobAsync(
+            var exportResponse = await geoSpatialClient.ExportVectorEnrichmentJobAsync(
                 new ExportVectorEnrichmentJobRequest()
                 {
                     Arn = request.vej_arn,
@@ -81,7 +83,7 @@ public class SageMakerLambdaFunction
                 JsonSerializer.Deserialize<VectorEnrichmentJobConfig>(
                     request.vej_config);
 
-            var jobResponse = await geoSpacialClient.StartVectorEnrichmentJobAsync(
+            var jobResponse = await geoSpatialClient.StartVectorEnrichmentJobAsync(
                 new StartVectorEnrichmentJobRequest()
                 {
                     ExecutionRoleArn = request.Role,
@@ -105,7 +107,7 @@ public class SageMakerLambdaFunction
     /// </summary>
     /// <param name="message">The queue message.</param>
     /// <param name="context">The Lambda context.</param>
-    /// <param name="geoClient">The SageMaker GeoSpacial client.</param>
+    /// <param name="geoClient">The SageMaker GeoSpatial client.</param>
     /// <param name="sageMakerClient">The SageMaker client.</param>
     /// <returns>Async task.</returns>
     private async Task ProcessMessageAsync(SQSEvent.SQSMessage message, ILambdaContext context, 
@@ -164,3 +166,4 @@ public class SageMakerLambdaFunction
         }
     }
 }
+// snippet-end:[SageMaker.dotnetv3.SagemakerLambda]

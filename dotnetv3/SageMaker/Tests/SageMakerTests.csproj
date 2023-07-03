@@ -41,6 +41,10 @@
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<DependentUpon>testsettings.json</DependentUpon>
 		</Content>
+	</ItemGroup>	
+
+	<ItemGroup>
+	  <ProjectReference Include="..\Scenarios\SageMakerScenario.csproj" />
 	</ItemGroup>
 
 </Project>

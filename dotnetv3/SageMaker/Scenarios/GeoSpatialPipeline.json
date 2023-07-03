@@ -26,6 +26,11 @@
       "Name": "parameter_vej_export_config",
       "Type": "String",
       "DefaultValue": ""
+    },
+    {
+      "Name": "parameter_step_1_vej_config",
+      "Type": "String",
+      "DefaultValue": ""
     }
   ],
   "PipelineExperimentConfig": {
