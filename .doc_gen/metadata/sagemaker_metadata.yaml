@@ -67,6 +67,23 @@ sagemaker_DeletePipeline:
                 - SageMaker.dotnetv3.DeletePipeline
   services:
     sagemaker: {DeletePipeline}
+sagemaker_DescribePipelineExecution:
+  title: Describe a pipeline execution in &SM; using an &AWS; SDK
+  title_abbrev: Describe pipeline execution
+  synopsis: describe a pipeline execution &SM;.
+  category:
+  languages:
+    .NET:
+      versions:
+        - sdk_version: 3
+          github: dotnetv3/SageMaker
+          sdkguide:
+          excerpts:
+            - description:
+              snippet_tags:
+                - SageMaker.dotnetv3.DescribePipelineExecution
+  services:
+    sagemaker: {DescribePipelineExecution}
 sagemaker_ListNotebookInstances:
   title: List the &SM; notebook instances using an &AWS; SDK
   title_abbrev: List notebook instances
