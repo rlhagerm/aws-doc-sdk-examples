@@ -79,7 +79,7 @@ public class SageMakerWrapper
     {
         var inputConfig = new VectorEnrichmentJobInputConfig()
         {
-            DataSourceConfig = new VectorEnrichmentJobDataSourceConfigInput()
+            DataSourceConfig = new()
             {
                 S3Data = new VectorEnrichmentJobS3Data()
                 {

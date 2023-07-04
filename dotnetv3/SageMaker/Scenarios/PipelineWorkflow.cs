@@ -31,19 +31,19 @@ namespace SageMakerScenario;
 // snippet-start:[SageMaker.dotnetv3.SagemakerPipelineScenario]
 public static class PipelineWorkflow
 {
-    public static IAmazonIdentityManagementService _iamClient;
-    public static SageMakerWrapper _sageMakerWrapper;
-    public static IAmazonSQS _sqsClient;
-    public static IAmazonS3 _s3Client;
-    public static IAmazonLambda _lambdaClient;
+    public static IAmazonIdentityManagementService _iamClient = null!;
+    public static SageMakerWrapper _sageMakerWrapper = null!;
+    public static IAmazonSQS _sqsClient = null!;
+    public static IAmazonS3 _s3Client = null!;
+    public static IAmazonLambda _lambdaClient = null!;
     public static IConfiguration _configuration = null!;
 
     private static string lambdaFunctionName = "SageMakerExampleFunction";
     private static string sageMakerRoleName = "SageMakerExampleRole";
     private static string lambdaRoleName = "SageMakerExampleLambdaRole";
 
-    private static string[] lambdaRolePolicies;
-    private static string[] sageMakerRolePolicies;
+    private static string[] lambdaRolePolicies = null!;
+    private static string[] sageMakerRolePolicies = null!;
 
     static async Task Main(string[] args)
     {
@@ -71,7 +71,7 @@ public static class PipelineWorkflow
             .AddJsonFile("settings.json") // Load settings from .json file.
             .AddJsonFile("settings.local.json",
                 true) // Optionally, load local settings.
-            .Build(); ;
+            .Build(); 
 
         ServicesSetup(host);
         string queueUrl = "";
@@ -98,7 +98,7 @@ public static class PipelineWorkflow
 
             var lambdaRoleArn = await CreateLambdaRole();
             var sageMakerRoleArn = await CreateSageMakerRole();
-            var functionArn = await SetupLambda(lambdaRoleArn);
+            var functionArn = await SetupLambda(lambdaRoleArn, true);
             queueUrl = await SetupQueue(queueName);
             await SetupBucket(bucketName);
 
@@ -135,7 +135,6 @@ public static class PipelineWorkflow
             await CleanupResources(true, queueUrl, pipelineName, bucketName);
             Console.WriteLine(new string('-', 80));
         }
-
     }
 
     /// <summary>
@@ -155,8 +154,9 @@ public static class PipelineWorkflow
     /// Set up the AWS Lambda, either by updating an existing function or creating a new function.
     /// </summary>
     /// <param name="roleArn">The role ARN to use for the Lambda function.</param>
+    /// <param name="askUser">True to ask the user before updating.</param>
     /// <returns>The ARN of the function.</returns>
-    public static async Task<string> SetupLambda(string roleArn)
+    public static async Task<string> SetupLambda(string roleArn, bool askUser)
     {
         Console.WriteLine(new string('-', 80));
         Console.WriteLine("Setting up the Lambda function for the pipeline.");
@@ -169,9 +169,14 @@ public static class PipelineWorkflow
                 FunctionName = lambdaFunctionName
             });
 
-            var updateResponse = GetYesNoResponse($"\tThe Lambda function {lambdaFunctionName} already exists, do you want to update it?");
+            var updateFunction = true;
+            if (askUser)
+            {
+                updateFunction = GetYesNoResponse(
+                    $"\tThe Lambda function {lambdaFunctionName} already exists, do you want to update it?");
+            }
 
-            if (updateResponse)
+            if (updateFunction)
             {
                 // Update the Lambda function.
                 using var zipMemoryStream = new MemoryStream(await File.ReadAllBytesAsync("SageMakerLambda.zip"));

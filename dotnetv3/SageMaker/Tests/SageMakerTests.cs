@@ -20,13 +20,13 @@ public class SageMakerTests
 {
     private readonly IConfiguration _configuration;
     private readonly SageMakerWrapper _sageMakerWrapper;
-    private static string pipelineName;
-    private static string bucketName;
-    private static string queueName;
-    private static string lambdaRoleArn;
-    private static string sageMakerRoleArn;
-    private static string functionArn;
-    private static string queueUrl;
+    private static string pipelineName = null!;
+    private static string bucketName = null!;
+    private static string queueName = null!;
+    private static string lambdaRoleArn = null!;
+    private static string sageMakerRoleArn = null!;
+    private static string functionArn = null!;
+    private static string queueUrl = null!;
 
     /// <summary>
     /// Constructor for the test class.
@@ -70,10 +70,9 @@ public class SageMakerTests
         // Arrange.
         lambdaRoleArn = await PipelineWorkflow.CreateLambdaRole();
         sageMakerRoleArn = await PipelineWorkflow.CreateSageMakerRole();
-        functionArn = await PipelineWorkflow.SetupLambda(lambdaRoleArn);
+        functionArn = await PipelineWorkflow.SetupLambda(lambdaRoleArn, false);
         queueUrl = await PipelineWorkflow.SetupQueue(queueName);
         await PipelineWorkflow.SetupBucket(bucketName);
-        //var pipelineJson = await File.ReadAllTextAsync("GeoSpatialPipeline.json");
 
         // Act.
         var arn = await PipelineWorkflow.SetupPipeline(sageMakerRoleArn, functionArn, pipelineName);
