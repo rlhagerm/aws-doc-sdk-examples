@@ -30,7 +30,7 @@ public static class HelloSageMaker
             Console.WriteLine($"No notebook instances found.");
             Console.WriteLine("See https://docs.aws.amazon.com/sagemaker/latest/dg/howitworks-create-ws.html to create one.");
         }
-        
+
         foreach (var notebookInstance in response.NotebookInstances)
         {
             Console.WriteLine($"\tInstance: {notebookInstance.NotebookInstanceName}");

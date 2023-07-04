@@ -110,11 +110,11 @@ public class SageMakerLambdaFunction
     /// <param name="geoClient">The SageMaker GeoSpatial client.</param>
     /// <param name="sageMakerClient">The SageMaker client.</param>
     /// <returns>Async task.</returns>
-    private async Task ProcessMessageAsync(SQSEvent.SQSMessage message, ILambdaContext context, 
+    private async Task ProcessMessageAsync(SQSEvent.SQSMessage message, ILambdaContext context,
         AmazonSageMakerGeospatialClient geoClient, AmazonSageMakerClient sageMakerClient)
     {
         context.Logger.LogInformation($"Processed message {message.Body}");
-        
+
         // Get information about the SageMaker job.
         var payload = JsonSerializer.Deserialize<QueuePayload>(message.Body);
         context.Logger.LogInformation($"Payload token {payload.token}");

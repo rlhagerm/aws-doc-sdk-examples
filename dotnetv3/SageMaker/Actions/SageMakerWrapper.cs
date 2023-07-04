@@ -71,9 +71,9 @@ public class SageMakerWrapper
     /// <param name="executionRoleArn">The ARN of the execution role.</param>
     /// <returns>The ARN of the pipeline execution.</returns>
     public async Task<string> ExecutePipeline(
-        string queueUrl, 
-        string inputLocationUrl, 
-        string outputLocationUrl, 
+        string queueUrl,
+        string inputLocationUrl,
+        string outputLocationUrl,
         string pipelineName,
         string executionRoleArn)
     {

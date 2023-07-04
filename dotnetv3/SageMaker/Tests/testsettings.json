@@ -1,12 +1,7 @@
 {
-  "parameterGroupName": "test-parameter-group",
-  "parameterGroupFamily": "mysql8.0",
-  "modifyParameterName": "auto_increment_offset",
-  "modifyParameterValue": "3",
-  "engineName": "mysql",
-  "engineVersion": "8.0.28",
-  "instanceIdentifier": "test-instance-1",
-  "instanceClass": "db.t3.micro",
-  "adminUserName": "admin",
-  "adminPassword": "EXAMPLEPASSWORD"
+  "roleName": "sagemaker-sdk-example-test-role",
+  "queueName": "sagemaker-sdk-example-test-queue",
+  "bucketName": "sagemaker-sdk-example-test-bucket",
+  "pipelineName": "sagemaker-sdk-example-test-pipeline",
+  "inputFileName": "sagemaker-sdk-example-test-input-file"
 }

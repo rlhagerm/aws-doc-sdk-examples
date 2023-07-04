@@ -31,12 +31,12 @@ namespace SageMakerScenario;
 // snippet-start:[SageMaker.dotnetv3.SagemakerPipelineScenario]
 public static class PipelineWorkflow
 {
-    private static IAmazonIdentityManagementService _iamClient;
-    private static SageMakerWrapper _sageMakerWrapper;
-    private static IAmazonSQS _sqsClient;
-    private static IAmazonS3 _s3Client;
-    private static IAmazonLambda _lambdaClient;
-    private static IConfiguration _configuration = null!;
+    public static IAmazonIdentityManagementService _iamClient;
+    public static SageMakerWrapper _sageMakerWrapper;
+    public static IAmazonSQS _sqsClient;
+    public static IAmazonS3 _s3Client;
+    public static IAmazonLambda _lambdaClient;
+    public static IConfiguration _configuration = null!;
 
     private static string lambdaFunctionName = "SageMakerExampleFunction";
     private static string sageMakerRoleName = "SageMakerExampleRole";
@@ -75,6 +75,10 @@ public static class PipelineWorkflow
 
         ServicesSetup(host);
         string queueUrl = "";
+        string queueName = _configuration["queueName"];
+        string bucketName = _configuration["bucketName"];
+        var pipelineName = _configuration["pipelineName"];
+
         try
         {
             Console.WriteLine(new string('-', 80));
@@ -95,18 +99,18 @@ public static class PipelineWorkflow
             var lambdaRoleArn = await CreateLambdaRole();
             var sageMakerRoleArn = await CreateSageMakerRole();
             var functionArn = await SetupLambda(lambdaRoleArn);
-            queueUrl = await SetupQueue();
-            await SetupBucket();
+            queueUrl = await SetupQueue(queueName);
+            await SetupBucket(bucketName);
 
             Console.WriteLine(new string('-', 80));
             Console.WriteLine("Now we can create and execute our pipeline.");
             Console.WriteLine(new string('-', 80));
 
-            await SetupPipeline(sageMakerRoleArn, functionArn);
-            var executionArn = await ExecutePipeline(queueUrl, sageMakerRoleArn);
+            await SetupPipeline(sageMakerRoleArn, functionArn, pipelineName);
+            var executionArn = await ExecutePipeline(queueUrl, sageMakerRoleArn, pipelineName, bucketName);
             await WaitForPipelineExecution(executionArn);
 
-            await GetOutputResults();
+            await GetOutputResults(bucketName);
 
             Console.WriteLine(new string('-', 80));
             Console.WriteLine("The pipeline has completed. To view the pipeline and executions" +
@@ -118,7 +122,7 @@ public static class PipelineWorkflow
             Console.WriteLine("Finally, let's clean up our resources.");
             Console.WriteLine(new string('-', 80));
 
-            await CleanupResources(true, queueUrl);
+            await CleanupResources(true, queueUrl, pipelineName, bucketName);
 
             Console.WriteLine(new string('-', 80));
             Console.WriteLine("SageMaker pipeline scenario is complete.");
@@ -128,7 +132,7 @@ public static class PipelineWorkflow
         {
             Console.WriteLine(new string('-', 80));
             Console.WriteLine($"There was a problem running the scenario: {ex.Message}");
-            await CleanupResources(true,queueUrl);
+            await CleanupResources(true, queueUrl, pipelineName, bucketName);
             Console.WriteLine(new string('-', 80));
         }
 
@@ -145,7 +149,6 @@ public static class PipelineWorkflow
         _sqsClient = host.Services.GetRequiredService<IAmazonSQS>();
         _s3Client = host.Services.GetRequiredService<IAmazonS3>();
         _lambdaClient = host.Services.GetRequiredService<IAmazonLambda>();
-        _sageMakerClient = host.Services.GetRequiredService<IAmazonSageMaker>();
     }
 
     /// <summary>
@@ -179,7 +182,7 @@ public static class PipelineWorkflow
                         ZipFile = zipMemoryStream,
                     });
             }
-            
+
             functionArn = functionInfo.Configuration.FunctionArn;
         }
         catch (ResourceNotFoundException)
@@ -222,9 +225,9 @@ public static class PipelineWorkflow
         lambdaRolePolicies = new string[]{
             "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess",
             "arn:aws:iam::aws:policy/AmazonSQSFullAccess",
-            "arn:aws:iam::aws:policy/service-role/AmazonSageMakerGeospatialFullAccess",
-            "arn:aws:iam::aws:policy/service-role/AmazonSageMakerServiceCatalogProductsLambdaServiceRolePolicy",
-            "arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole"
+            "arn:aws:iam::aws:policy/service-role/" + "AmazonSageMakerGeospatialFullAccess",
+            "arn:aws:iam::aws:policy/service-role/" + "AmazonSageMakerServiceCatalogProductsLambdaServiceRolePolicy",
+            "arn:aws:iam::aws:policy/service-role/" + "AWSLambdaSQSQueueExecutionRole"
         };
 
         var roleArn = await GetRoleArnIfExists(lambdaRoleName);
@@ -267,7 +270,7 @@ public static class PipelineWorkflow
                     RoleName = lambdaRoleName
                 });
         }
-        
+
         // Allow time for the role to be ready.
         Thread.Sleep(10000);
         Console.WriteLine($"\tRole ready with ARN {roleResult.Role.Arn}.");
@@ -342,18 +345,17 @@ public static class PipelineWorkflow
     /// <summary>
     /// Set up the SQS queue to use with the pipeline.
     /// </summary>
+    /// <param name="queueName">The name for the queue.</param>
     /// <returns>The URL for the queue.</returns>
-    public static async Task<string> SetupQueue()
+    public static async Task<string> SetupQueue(string queueName)
     {
         Console.WriteLine(new string('-', 80));
-        string queueName = _configuration["queueName"];
-
         Console.WriteLine($"Setting up queue {queueName}.");
 
         try
         {
             var queueInfo = await _sqsClient.GetQueueUrlAsync(new GetQueueUrlRequest()
-                { QueueName = queueName });
+            { QueueName = queueName });
             return queueInfo.QueueUrl;
         }
         catch (QueueDoesNotExistException)
@@ -400,39 +402,38 @@ public static class PipelineWorkflow
         Console.WriteLine($"Connecting lambda and queue for the pipeline.");
 
         var queueAttributes = await _sqsClient.GetQueueAttributesAsync(
-            new GetQueueAttributesRequest() { QueueUrl = queueUrl, AttributeNames = new List<string>() { "All" }});
+            new GetQueueAttributesRequest() { QueueUrl = queueUrl, AttributeNames = new List<string>() { "All" } });
         var queueArn = queueAttributes.QueueARN;
 
-       var eventSource = await _lambdaClient.ListEventSourceMappingsAsync(
-            new ListEventSourceMappingsRequest()
-            {
-                EventSourceArn = queueArn
-            });
+        var eventSource = await _lambdaClient.ListEventSourceMappingsAsync(
+             new ListEventSourceMappingsRequest()
+             {
+                 EventSourceArn = queueArn
+             });
 
-       if (!eventSource.EventSourceMappings.Any())
-       {
-           // Only add the event source mapping if it does not already exist.
-           await _lambdaClient.CreateEventSourceMappingAsync(
-               new CreateEventSourceMappingRequest()
-               {
-                   EventSourceArn = queueArn,
-                   FunctionName = lambdaFunctionName,
-                   Enabled = true
-               });
-       }
+        if (!eventSource.EventSourceMappings.Any())
+        {
+            // Only add the event source mapping if it does not already exist.
+            await _lambdaClient.CreateEventSourceMappingAsync(
+                new CreateEventSourceMappingRequest()
+                {
+                    EventSourceArn = queueArn,
+                    FunctionName = lambdaFunctionName,
+                    Enabled = true
+                });
+        }
 
-       Console.WriteLine(new string('-', 80));
+        Console.WriteLine(new string('-', 80));
     }
 
     /// <summary>
     /// Set up the bucket to use for pipeline input and output.
     /// </summary>
+    /// <param name="bucketName">The name for the bucket.</param>
     /// <returns>Async task.</returns>
-    public static async Task SetupBucket()
+    public static async Task SetupBucket(string bucketName)
     {
         Console.WriteLine(new string('-', 80));
-        string bucketName = _configuration["bucketName"];
-
         Console.WriteLine($"Setting up bucket {bucketName}.");
 
         var bucketExists = await Amazon.S3.Util.AmazonS3Util.DoesS3BucketExistV2Async(_s3Client,
@@ -440,20 +441,20 @@ public static class PipelineWorkflow
 
         if (!bucketExists)
         {
-           await _s3Client.PutBucketAsync(new PutBucketRequest()
+            await _s3Client.PutBucketAsync(new PutBucketRequest()
             {
                 BucketName = bucketName,
                 BucketRegion = S3Region.USWest2
             });
 
             Thread.Sleep(5000);
-            
+
             await _s3Client.PutObjectAsync(new PutObjectRequest()
-           {
-               BucketName = bucketName,
-               Key = "samplefiles/latlongtest.csv",
-               FilePath = "latlongtest.csv"
-           });
+            {
+                BucketName = bucketName,
+                Key = "samplefiles/latlongtest.csv",
+                FilePath = "latlongtest.csv"
+            });
         }
 
         Console.WriteLine($"\tBucket {bucketName} ready.");
@@ -463,46 +464,46 @@ public static class PipelineWorkflow
     /// <summary>
     /// Display some results from the output directory.
     /// </summary>
+    /// <param name="bucketName">The name for the bucket.</param>
     /// <returns>Async task.</returns>
-    public static async Task GetOutputResults()
-    { 
+    public static async Task<string> GetOutputResults(string bucketName)
+    {
         Console.WriteLine(new string('-', 80));
-        string bucketName = _configuration["bucketName"];
-        
         Console.WriteLine($"Getting output results {bucketName}.");
-
+        string outputKey = "";
         Thread.Sleep(15000);
-        var outputFiles =  await _s3Client.ListObjectsAsync(
+        var outputFiles = await _s3Client.ListObjectsAsync(
               new ListObjectsRequest()
-                {
-                    BucketName = bucketName,
-                    Prefix = "outputfiles/"
-                });
+              {
+                  BucketName = bucketName,
+                  Prefix = "outputfiles/"
+              });
 
         if (outputFiles.S3Objects.Any())
         {
-              var sampleOutput = outputFiles.S3Objects.OrderBy(s => s.LastModified).Last();
-              Console.WriteLine($"\tOutput file: {sampleOutput.Key}");
-              var outputSampleResponse = await _s3Client.GetObjectAsync(
-                  new GetObjectRequest()
-                  {
-                      BucketName = bucketName,
-                      Key = sampleOutput.Key
-                  });
-
-              StreamReader reader = new StreamReader(outputSampleResponse.ResponseStream);
-              await reader.ReadLineAsync();
-              Console.WriteLine("\tOutput file contents: \n");
-              for (int i = 0; i < 10; i++)
-              {
-                  if (!reader.EndOfStream)
-                  {
-                      Console.WriteLine("\t" + await reader.ReadLineAsync());
-                  }
-              }
+            var sampleOutput = outputFiles.S3Objects.OrderBy(s => s.LastModified).Last();
+            Console.WriteLine($"\tOutput file: {sampleOutput.Key}");
+            var outputSampleResponse = await _s3Client.GetObjectAsync(
+                new GetObjectRequest()
+                {
+                    BucketName = bucketName,
+                    Key = sampleOutput.Key
+                });
+            outputKey = sampleOutput.Key;
+            StreamReader reader = new StreamReader(outputSampleResponse.ResponseStream);
+            await reader.ReadLineAsync();
+            Console.WriteLine("\tOutput file contents: \n");
+            for (int i = 0; i < 10; i++)
+            {
+                if (!reader.EndOfStream)
+                {
+                    Console.WriteLine("\t" + await reader.ReadLineAsync());
+                }
+            }
         }
 
         Console.WriteLine(new string('-', 80));
+        return outputKey;
     }
 
     /// <summary>
@@ -510,13 +511,13 @@ public static class PipelineWorkflow
     /// </summary>
     /// <param name="roleArn">The ARN of the role for the pipeline.</param>
     /// <param name="functionArn">The ARN of the Lambda function for the pipeline.</param>
+    /// <param name="pipelineName">The name for the pipeline.</param>
     /// <returns>The ARN of the pipeline.</returns>
-    public static async Task<string> SetupPipeline(string roleArn, string functionArn)
+    public static async Task<string> SetupPipeline(string roleArn, string functionArn, string pipelineName)
     {
         Console.WriteLine(new string('-', 80));
         Console.WriteLine($"Setting up the pipeline.");
 
-        var pipelineName = _configuration["pipelineName"];
         var pipelineJson = await File.ReadAllTextAsync("GeoSpatialPipeline.json");
 
         // Add the correct function ARN instead of the placeholder.
@@ -527,7 +528,7 @@ public static class PipelineWorkflow
 
         Console.WriteLine($"\tPipeline set up with ARN {pipelineArn}.");
         Console.WriteLine(new string('-', 80));
-        
+
         return pipelineArn;
     }
 
@@ -536,14 +537,18 @@ public static class PipelineWorkflow
     /// </summary>
     /// <param name="queueUrl">The URL for the queue used in the pipeline.</param>
     /// <param name="roleArn">The ARN of the execution role.</param>
+    /// <param name="pipelineName">The name of the pipeline.</param>
+    /// <param name="bucketName">The name of the bucket.</param>
     /// <returns>The pipeline execution ARN.</returns>
-    public static async Task<string> ExecutePipeline(string queueUrl, string roleArn)
+    public static async Task<string> ExecutePipeline(
+        string queueUrl,
+        string roleArn,
+        string pipelineName,
+        string bucketName)
     {
         Console.WriteLine(new string('-', 80));
         Console.WriteLine($"Starting pipeline execution.");
 
-        var pipelineName = _configuration["pipelineName"];
-        var bucketName = _configuration["bucketName"];
         var input = $"s3://{bucketName}/samplefiles/latlongtest.csv";
         var output = $"s3://{bucketName}/outputfiles/";
 
@@ -584,13 +589,18 @@ public static class PipelineWorkflow
     /// </summary>
     /// <param name="askUser">True to ask the user for cleanup..</param>
     /// <param name="queueUrl">The URL of the queue to clean up.</param>
+    /// <param name="pipelineName">The name of the pipeline.</param>
+    /// <param name="bucketName">The name of the bucket.</param>
     /// <returns>Async task.</returns>
-    public static async Task CleanupResources(bool askUser, string queueUrl)
+    public static async Task<bool> CleanupResources(
+        bool askUser,
+        string queueUrl,
+        string pipelineName,
+        string bucketName)
     {
         Console.WriteLine(new string('-', 80));
         Console.WriteLine($"Clean up resources.");
 
-        var pipelineName = _configuration["pipelineName"];
         if (!askUser || GetYesNoResponse($"\tDelete pipeline {pipelineName}? (y/n)"))
         {
             Console.WriteLine($"\tDeleting pipeline.");
@@ -605,7 +615,6 @@ public static class PipelineWorkflow
             await _sqsClient.DeleteQueueAsync(new DeleteQueueRequest(queueUrl));
         }
 
-        var bucketName = _configuration["bucketName"];
         if (!askUser || GetYesNoResponse($"\tDelete Amazon S3 bucket {bucketName}? (y/n)"))
         {
             Console.WriteLine($"\tDeleting bucket.");
@@ -680,6 +689,7 @@ public static class PipelineWorkflow
         }
 
         Console.WriteLine(new string('-', 80));
+        return true;
     }
 
     /// <summary>

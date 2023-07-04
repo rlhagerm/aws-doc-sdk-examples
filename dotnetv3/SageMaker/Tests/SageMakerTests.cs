@@ -1,7 +1,12 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier:  Apache-2.0
 
+using Amazon;
+using Amazon.IdentityManagement;
+using Amazon.Lambda;
+using Amazon.S3;
 using Amazon.SageMaker;
+using Amazon.SQS;
 using Microsoft.Extensions.Configuration;
 using SageMakerActions;
 using SageMakerScenario;
@@ -15,6 +20,13 @@ public class SageMakerTests
 {
     private readonly IConfiguration _configuration;
     private readonly SageMakerWrapper _sageMakerWrapper;
+    private static string pipelineName;
+    private static string bucketName;
+    private static string queueName;
+    private static string lambdaRoleArn;
+    private static string sageMakerRoleArn;
+    private static string functionArn;
+    private static string queueUrl;
 
     /// <summary>
     /// Constructor for the test class.
@@ -28,8 +40,22 @@ public class SageMakerTests
                 true) // Optionally load local settings.
             .Build();
 
+        queueName = _configuration["queueName"];
+        bucketName = _configuration["bucketName"];
+        pipelineName = _configuration["pipelineName"];
+
         _sageMakerWrapper = new SageMakerWrapper(
-            new AmazonSageMakerClient());
+            new AmazonSageMakerClient(RegionEndpoint.USWest2));
+
+        PipelineWorkflow._sageMakerWrapper = _sageMakerWrapper;
+        PipelineWorkflow._iamClient =
+            new AmazonIdentityManagementServiceClient(RegionEndpoint.USWest2);
+        PipelineWorkflow._sqsClient =
+            new AmazonSQSClient(RegionEndpoint.USWest2);
+        PipelineWorkflow._s3Client =
+            new AmazonS3Client(RegionEndpoint.USWest2);
+        PipelineWorkflow._lambdaClient =
+            new AmazonLambdaClient(RegionEndpoint.USWest2);
     }
 
     /// <summary>
@@ -42,111 +68,66 @@ public class SageMakerTests
     public async Task AddPipeline_ShouldReturnNonEmptyArn()
     {
         // Arrange.
-        //var lambdaRoleArn = await PipelineWorkflow.CreateLambdaRole();
-        var sageMakerRoleArn = await PipelineWorkflow.CreateSageMakerRole();
-        //var functionArn = await PipelineWorkflow.SetupLambda(lambdaRoleArn);
-        //var queueUrl = await PipelineWorkflow.SetupQueue();
-        await PipelineWorkflow.SetupBucket();
-        var pipelineJson =
-            "{\"Version\":\"2020-12-01\",\"Metadata\":{},\"Parameters\":[]," +
-            "\"PipelineExperimentConfig\":{\"ExperimentName\":" +
-            "{\"Get\":\"Execution.PipelineName\"},\"TrialName\":" +
-            "{\"Get\":\"Execution.PipelineExecutionId\"}},\"Steps\":[]}";
+        lambdaRoleArn = await PipelineWorkflow.CreateLambdaRole();
+        sageMakerRoleArn = await PipelineWorkflow.CreateSageMakerRole();
+        functionArn = await PipelineWorkflow.SetupLambda(lambdaRoleArn);
+        queueUrl = await PipelineWorkflow.SetupQueue(queueName);
+        await PipelineWorkflow.SetupBucket(bucketName);
+        //var pipelineJson = await File.ReadAllTextAsync("GeoSpatialPipeline.json");
 
         // Act.
-        var arn = await _sageMakerWrapper.SetupPipeline(
-            pipelineJson, 
-            sageMakerRoleArn,
-            "testPipeline",
-            "testPipeline",
-            "test pipeline");
+        var arn = await PipelineWorkflow.SetupPipeline(sageMakerRoleArn, functionArn, pipelineName);
 
         // Assert.
         Assert.False(string.IsNullOrEmpty(arn));
     }
 
     /// <summary>
-    /// Set up a new pipeline. The returned ARN should not be empty.
+    /// Execute the pipeline. The returned ARN should not be empty.
     /// </summary>
     /// <returns>Async task.</returns>
     [Fact]
-    [Order(1)]
+    [Order(2)]
     [Trait("Category", "Integration")]
     public async Task ExecutePipeline_ShouldReturnNonEmptyArn()
     {
-        // Arrange.
-        //var lambdaRoleArn = await PipelineWorkflow.CreateLambdaRole();
-        var sageMakerRoleArn = await PipelineWorkflow.CreateSageMakerRole();
-        //var functionArn = await PipelineWorkflow.SetupLambda(lambdaRoleArn);
-        //var queueUrl = await PipelineWorkflow.SetupQueue();
-        await PipelineWorkflow.SetupBucket();
-        var pipelineJson =
-            "{\"Version\":\"2020-12-01\",\"Metadata\":{},\"Parameters\":[]," +
-            "\"PipelineExperimentConfig\":{\"ExperimentName\":" +
-            "{\"Get\":\"Execution.PipelineName\"},\"TrialName\":" +
-            "{\"Get\":\"Execution.PipelineExecutionId\"}},\"Steps\":[]}";
-
         // Act.
-        var arn = await _sageMakerWrapper.SetupPipeline(
-            pipelineJson,
-            sageMakerRoleArn,
-            "testPipeline",
-            "testPipeline",
-            "test pipeline");
-
+        var arn = await PipelineWorkflow.ExecutePipeline(queueUrl, sageMakerRoleArn,
+            pipelineName, bucketName);
+        await PipelineWorkflow.WaitForPipelineExecution(arn);
         // Assert.
         Assert.False(string.IsNullOrEmpty(arn));
     }
 
     /// <summary>
-    /// Set up a new pipeline. The returned ARN should not be empty.
-    /// </summary>
-    /// <returns>Async task.</returns>
-    [Fact]
-    [Order(1)]
-    [Trait("Category", "Integration")]
-    public async Task CheckPipelineExecution_ShouldReturnStatus()
-    {
-        // Arrange.
-        //var lambdaRoleArn = await PipelineWorkflow.CreateLambdaRole();
-        var sageMakerRoleArn = await PipelineWorkflow.CreateSageMakerRole();
-        //var functionArn = await PipelineWorkflow.SetupLambda(lambdaRoleArn);
-        //var queueUrl = await PipelineWorkflow.SetupQueue();
-        await PipelineWorkflow.SetupBucket();
-        var pipelineJson =
-            "{\"Version\":\"2020-12-01\",\"Metadata\":{},\"Parameters\":[]," +
-            "\"PipelineExperimentConfig\":{\"ExperimentName\":" +
-            "{\"Get\":\"Execution.PipelineName\"},\"TrialName\":" +
-            "{\"Get\":\"Execution.PipelineExecutionId\"}},\"Steps\":[]}";
-
-        // Act.
-        var arn = await _sageMakerWrapper.SetupPipeline(
-            pipelineJson,
-            sageMakerRoleArn,
-            "testPipeline",
-            "testPipeline",
-            "test pipeline");
-
-        // Assert.
-        Assert.False(string.IsNullOrEmpty(arn));
-    }
-
-    /// <summary>
-    /// Set up a new pipeline. The returned ARN should not be empty.
+    /// Get some pipeline output. The returned object key should not be empty.
     /// </summary>
     /// <returns>Async task.</returns>
     [Fact]
     [Order(3)]
     [Trait("Category", "Integration")]
-    public async Task DeletePipeline_ShouldReturnArn()
+    public async Task GetPipelineOutput_ShouldReturnKey()
     {
-        // Arrange.
-
         // Act.
-        var arn = await _sageMakerWrapper.DeletePipelineByName("testPipeline");
-        await PipelineWorkflow.CleanupResources(false)
+        var keyName = await PipelineWorkflow.GetOutputResults(bucketName);
 
         // Assert.
-        Assert.False(string.IsNullOrEmpty(arn));
+        Assert.False(string.IsNullOrEmpty(keyName));
+    }
+
+    /// <summary>
+    /// Clean up resources. Should return true if successful.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    [Fact]
+    [Order(4)]
+    [Trait("Category", "Integration")]
+    public async Task CleanupResources_ShouldReturnTrue()
+    {
+        // Act.
+        var success = await PipelineWorkflow.CleanupResources(false, queueUrl, pipelineName, bucketName);
+
+        // Assert.
+        Assert.True(success);
     }
 }

@@ -1,4 +1,4 @@
-# Using an SDK to create and execute a SageMaker geospatial pipeline
+# Create and execute a SageMaker geospatial pipeline using an AWS SDK
 
 ## Overview
 

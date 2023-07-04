@@ -28,7 +28,7 @@ public class PipelineRequest : SQSEvent
     /// <summary>
     /// The ARN of the Vector Enrichment Job.
     /// </summary>
-    public string vej_arn{ get; set; } = null!;
+    public string vej_arn { get; set; } = null!;
 
     /// <summary>
     /// The input configuration for the Vector Enrichment Job.
