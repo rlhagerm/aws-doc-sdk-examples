@@ -15,10 +15,18 @@ and a [callback step](https://docs.aws.amazon.com/sagemaker/latest/dg/build-and-
 which are processed by the same example Lambda function. The Lambda handles starting a SageMaker job, or an export function, or the processing of the Amazon SQS queue message that 
 is used for SageMaker callback steps. This Lambda code is included as part of this example. 
 
+![](C:\Work\Repos\Forks\aws-doc-sdk-examples\dotnetv3\SageMaker\Pipeline.PNG)
+
 ### Pipeline Parameters
 The example pipeline also includes parameters that can be referenced in throughout the steps, and can be used to change
-values between executions. In this example, the parameters 
+values between executions. In this example, the parameters are used to set the Amazon Simple Storage Service (Amazon S3)
+locations for the input and output files, along with the identifiers for the role and queue to use in the pipeline. 
+The example demonstrates how to set and access these parameters.
 
+### Geospatial Jobs
+A SageMaker pipeline can be used for model training, setup, testing, or validation. This example uses a simple job
+for demonstration purposes - a [Vector Enrichment Job (VEJ)](https://docs.aws.amazon.com/sagemaker/latest/dg/geospatial-vej.html) that processes a set of coordinates to produce human-readable 
+addresses powered by Amazon Location Service. Other types of job or jobs could be substituted in the pipeline instead.
 
 ## ⚠ Important
 
@@ -31,18 +39,17 @@ values between executions. In this example, the parameters
 
 ### Prerequisites
 
-To view pipelines in SageMaker 
+To view pipelines in SageMaker Studio, you will need to [set up an Amazon SageMaker Domain](https://docs.aws.amazon.com/sagemaker/latest/dg/gs-studio-onboard.html).
+To use geospatial capabilities, [you will need to use a supported region](https://docs.aws.amazon.com/sagemaker/latest/dg/geospatial.html).
+You may use the provided input file, or provide your own. The AWS Lambda function is provided as a zip archive, but can also be
+packaged using the [Lambda plugin for .NET](https://docs.aws.amazon.com/lambda/latest/dg/csharp-package-toolkit.html).
+
 For general prerequisites, see the [README](../README.md#Prerequisites) in the `dotnetv3` folder.
 
 ### Instructions
 
 For general instructions to run the examples, see the
 [README](../README.md#building-and-running-the-code-examples) in the `dotnetv3` folder.
-
-Some projects might include a settings.json file. Before compiling the project,
-you can change these values to match your own account and resources. Alternatively,
-add a settings.local.json file with your local settings, which will be loaded automatically
-when the application runs.
 
 After the example compiles, you can run it from the command line. To do so, navigate to
 the folder that contains the .csproj file and run the following command:
