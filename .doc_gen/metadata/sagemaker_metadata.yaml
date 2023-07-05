@@ -70,7 +70,7 @@ sagemaker_DeletePipeline:
 sagemaker_DescribePipelineExecution:
   title: Describe a pipeline execution in &SM; using an &AWS; SDK
   title_abbrev: Describe pipeline execution
-  synopsis: describe a pipeline execution &SM;.
+  synopsis: describe a pipeline execution in &SM;.
   category:
   languages:
     .NET:

@@ -52,7 +52,6 @@ public class SageMakerWrapper
                     PipelineDisplayName = displayName,
                     PipelineName = name,
                     RoleArn = roleArn
-
                 });
 
             return createResponse.PipelineArn;
@@ -160,5 +159,4 @@ public class SageMakerWrapper
     }
     // snippet-end:[SageMaker.dotnetv3.DeletePipeline]
 }
-
 // snippet-end:[SageMaker.dotnetv3.SagemakerWrapper]
