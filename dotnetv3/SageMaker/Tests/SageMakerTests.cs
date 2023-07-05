@@ -56,6 +56,10 @@ public class SageMakerTests
             new AmazonS3Client(RegionEndpoint.USWest2);
         PipelineWorkflow._lambdaClient =
             new AmazonLambdaClient(RegionEndpoint.USWest2);
+
+        PipelineWorkflow.lambdaFunctionName = "SageMakerExampleFunctionTest";
+        PipelineWorkflow.sageMakerRoleName = "SageMakerExampleRoleTest";
+        PipelineWorkflow.lambdaRoleName = "SageMakerExampleLambdaRoleTest";
     }
 
     /// <summary>

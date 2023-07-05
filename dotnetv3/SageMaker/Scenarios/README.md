@@ -4,6 +4,21 @@
 
 This scenario demonstrates how to work with Amazon SageMaker (SageMaker) pipelines and geospatial jobs.
 
+A [SageMaker pipeline](https://docs.aws.amazon.com/sagemaker/latest/dg/pipelines.html) is a series of 
+interconnected steps that can be used to automate machine learning workflows. Pipelines can be created 
+and executed from SageMaker Studio using Python, but you can also work with them using AWS SDKs in other
+languages. Creating, executing, and monitoring operations for SageMaker pipelines are all available using the SDKs.
+
+### Pipeline Steps
+This example pipeline includes an [AWS Lambda step](https://docs.aws.amazon.com/sagemaker/latest/dg/build-and-manage-steps.html#step-type-lambda) 
+and a [callback step](https://docs.aws.amazon.com/sagemaker/latest/dg/build-and-manage-steps.html#step-type-callback), 
+which are processed by the same example Lambda function. The Lambda handles starting a SageMaker job, or an export function, or the processing of the Amazon SQS queue message that 
+is used for SageMaker callback steps. This Lambda code is included as part of this example. 
+
+### Pipeline Parameters
+The example pipeline also includes parameters that can be referenced in throughout the steps, and can be used to change
+values between executions. In this example, the parameters 
+
 
 ## ⚠ Important
 

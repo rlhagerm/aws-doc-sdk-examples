@@ -38,9 +38,9 @@ public static class PipelineWorkflow
     public static IAmazonLambda _lambdaClient = null!;
     public static IConfiguration _configuration = null!;
 
-    private static string lambdaFunctionName = "SageMakerExampleFunction";
-    private static string sageMakerRoleName = "SageMakerExampleRole";
-    private static string lambdaRoleName = "SageMakerExampleLambdaRole";
+    public static string lambdaFunctionName = "SageMakerExampleFunction";
+    public static string sageMakerRoleName = "SageMakerExampleRole";
+    public static string lambdaRoleName = "SageMakerExampleLambdaRole";
 
     private static string[] lambdaRolePolicies = null!;
     private static string[] sageMakerRolePolicies = null!;
@@ -388,7 +388,7 @@ public static class PipelineWorkflow
             };
 
             var response = await _sqsClient.CreateQueueAsync(request);
-
+            Thread.Sleep(10000);
             await ConnectLambda(response.QueueUrl);
             Console.WriteLine($"\tQueue ready with Url {response.QueueUrl}.");
             Console.WriteLine(new string('-', 80));
@@ -413,7 +413,7 @@ public static class PipelineWorkflow
         var eventSource = await _lambdaClient.ListEventSourceMappingsAsync(
              new ListEventSourceMappingsRequest()
              {
-                 EventSourceArn = queueArn
+                 FunctionName = lambdaFunctionName
              });
 
         if (!eventSource.EventSourceMappings.Any())
