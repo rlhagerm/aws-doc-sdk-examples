@@ -11,4 +11,8 @@ namespace SNSActions;
 
 public class SNSWrapper
 {
+    public object CreateTopic(string? topicName)
+    {
+        throw new NotImplementedException();
+    }
 }
