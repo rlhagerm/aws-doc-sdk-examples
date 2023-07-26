@@ -46,7 +46,10 @@ public class TopicsAndQueues
     private static IConfiguration _configuration = null!;
     private static int _queueCount = 2;
     private static bool _useFifoTopic = false;
+    private static bool _useContentBasedDeduplication = false;
     private static string _topicName = null!;
+    private static string _topicArn = null!;
+    private static string[] _queueUrls = new string[_queueCount];
 
     static async Task Main(string[] args)
     {
@@ -151,9 +154,24 @@ public class TopicsAndQueues
             Console.WriteLine(
                 "Because you have selected a FIFO topic, '.fifo' must be appended to the topic name.");
             _topicName += ".fifo";
+
+            Console.WriteLine($"Because you have chosen a FIFO topic, deduplication is supported." +
+                              $"\r\nDeduplication IDs are either set in the message or automatically generated " +
+                              $"\r\nfrom content using a hash function.\r\n" +
+                              $"If a message is successfully published to an SNS FIFO topic, any message " +
+                              $"published and determined to have the same deduplication ID, " +
+                              $"within the five-minute deduplication interval, is accepted but not delivered.\r\n" +
+                              $"For more information about deduplication, " +
+                              $"see https://docs.aws.amazon.com/sns/latest/dg/fifo-message-dedup.html.");
+
+            _useContentBasedDeduplication = GetYesNoResponse("Use content-based deduplication instead of entering a deduplication ID?");
         }
 
-        var topicArn = await _snsWrapper.CreateTopic(_topicName, _useFifoTopic);
+        _topicArn = await _snsWrapper.CreateTopicWithName(_topicName, _useFifoTopic, _useContentBasedDeduplication);
+
+        Console.WriteLine($"Your new topic with the name {_topicName}" +
+                          $"\r\nand Amazon Resource Name (ARN) {_topicArn}" +
+                          $"\r\nhas been created.\r\n");
 
         Console.WriteLine(new string('-', 80));
     }
@@ -165,24 +183,82 @@ public class TopicsAndQueues
     private static async Task SetupQueues()
     {
         Console.WriteLine(new string('-', 80));
-        Console.WriteLine($"Now you will create 2 SQS queues to subscribe to the topic.");
+        Console.WriteLine($"Now you will create {_queueCount} Amazon Simple Queue Service (Amazon SQS) queues to subscribe to the topic.");
         Console.WriteLine(new string('-', 80));
 
         // Repeat this section for each queue.
         for (int i = 0; i < _queueCount; i++)
         {
-            Console.Write("Enter a name for an SQS queue");
+            Console.Write("Enter a name for an Amazon SQS queue");
             var queueName = Console.ReadLine();
             if (_useFifoTopic)
             {
-                Console.WriteLine(
-                    "Because you have selected a FIFO topic, '.fifo' must be appended to the topic name.");
-                _topicName += ".fifo";
+                // Only explain this once.
+                if (i == 0)
+                {
+                    Console.WriteLine(
+                        "Because you have selected a FIFO topic, '.fifo' must be appended to the queue name.");
+                    queueName += ".fifo";
+                }
+
+                var queueUrl = await _sqsWrapper.CreateQueueWithName(queueName, _useFifoTopic);
+
+               _queueUrls[i] = queueUrl;
+
+               Console.WriteLine($"Your new queue with the name {queueName}" +
+                                 $"\r\nand queue URL {queueUrl}" +
+                                 $"\r\nhas been created.\r\n");
+
+               if (i == 0)
+               {
+                   Console.WriteLine(
+                       $"The queue URL is used to retrieve the queue ARN,\r\n" +
+                       $"which is used to create a subscription.");
+               }
+
+               var queueArn = await _sqsWrapper.GetQueueArnByUrl(queueUrl);
+
+               if (i == 0)
+               {
+                   Console.WriteLine(
+                       $"An AWS Identity and Access Management (IAM) policy must be attached to an SQS queue, enabling it to receive\r\n" +
+                       $"messages from an SNS topic");
+               }
+
+               await _sqsWrapper.SetQueuePolicyForTopic(queueArn, _topicArn, queueUrl);
+
+               await SetupFilters(i, queueArn, queueName);
             }
         }
 
         Console.WriteLine(new string('-', 80));
     }
+
+    public static async Task SetupFilters(int queueCount, string queueARN, string queueName)
+    {
+        if (_useFifoTopic)
+        {
+            // Only explain this once.
+            if (queueCount == 0)
+            {
+                Console.WriteLine(
+                    "Subscriptions to a FIFO topic can have filters." +
+                    "If you add a filter to this subscription, then only the filtered messages " +
+                    "will be received in the queue.");
+
+                Console.WriteLine(
+                    "For information about message filtering, " +
+                    "see https://docs.aws.amazon.com/sns/latest/dg/sns-message-filtering.html");
+
+                Console.WriteLine(
+                    "For this example, you can filter messages by a" +
+                    "TONE attribute.");
+
+                var useFilter = GetYesNoResponse($"Filter messages for {queueName}'s subscription to the topic?");
+            }
+        }
+    }
+
 
     /// <summary>
     /// Clean up the resources from the scenario.
