@@ -1,15 +1,9 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier:  Apache-2.0
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
-using System.Text;
-using System.Threading.Tasks;
 using Amazon.SQS;
 using Amazon.SQS.Model;
-using Microsoft.Extensions.Logging;
 
 namespace SQSActions;
 
@@ -21,18 +15,14 @@ namespace SQSActions;
 public class SQSWrapper
 {
     private readonly IAmazonSQS _amazonSQSClient;
-    private readonly ILogger<SQSWrapper> _logger;
 
     /// <summary>
     /// Constructor for the Amazon SQS wrapper.
     /// </summary>
     /// <param name="amazonSQS">The injected Amazon SQS client.</param>
-    /// <param name="logger">The injected logger for the wrapper.</param>
-    public SQSWrapper(IAmazonSQS amazonSQS, ILogger<SQSWrapper> logger)
-
+    public SQSWrapper(IAmazonSQS amazonSQS)
     {
         _amazonSQSClient = amazonSQS;
-        _logger = logger;
     }
 
 
@@ -127,12 +117,11 @@ public class SQSWrapper
                                 "\"Statement\": [{" +
                                      "\"Effect\": \"Allow\"," +
                                      "\"Principal\": {" +
-                                         $"\"Service\": [" +
-                                             "\"sns.amazonaws.com\"," +
-                                         "]" +
-                                     "}," +
-                                     "\"Action\": \"sqs:SendMessage\"" +
-                                     $"\"Resource\": \"{queueArn}\"" +
+                                         $"\"Service\": " +
+                                             "\"sns.amazonaws.com\"" +
+                                            "}," +
+                                     "\"Action\": \"sqs:SendMessage\"," +
+                                     $"\"Resource\": \"{queueArn}\"," +
                                       "\"Condition\": {" +
                                            "\"ArnEquals\": {" +
                                                 $"\"aws:SourceArn\": \"{topicArn}\"" +
@@ -149,6 +138,56 @@ public class SQSWrapper
         return attributesResponse.HttpStatusCode == HttpStatusCode.OK;
     }
     // snippet-end:[TopicsAndQueues.dotnetv3.SetQueueAttributes]
+
+    // snippet-start:[TopicsAndQueues.dotnetv3.ReceiveMessage]
+    /// <summary>
+    /// Receive messages from a queue by its url.
+    /// </summary>
+    /// <param name="queueUrl">The url of the queue.</param>
+    /// <returns>The list of messages.</returns>
+    public async Task<List<Message>> ReceiveMessagesByUrl(string queueUrl, int maxMessages)
+    {
+        // Setting WaitTimeSeconds to non-zero enables long polling.
+        // For information about long polling, see
+        // https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-short-and-long-polling.html
+        var messageResponse = await _amazonSQSClient.ReceiveMessageAsync(
+            new ReceiveMessageRequest()
+            {
+                QueueUrl = queueUrl,
+                MaxNumberOfMessages = maxMessages,
+                WaitTimeSeconds = 1
+            });
+        return messageResponse.Messages;
+    }
+    // snippet-end:[TopicsAndQueues.dotnetv3.ReceiveMessage]
+
+    // snippet-start:[TopicsAndQueues.dotnetv3.DeleteMessageBatch]
+    /// <summary>
+    /// Delete a batch of messages from a queue by its url.
+    /// </summary>
+    /// <param name="queueUrl">The url of the queue.</param>
+    /// <returns>True if successful.</returns>
+    public async Task<bool> DeleteMessageBatchByUrl(string queueUrl, List<Message> messages)
+    {
+        var deleteRequest = new DeleteMessageBatchRequest()
+        {
+            QueueUrl = queueUrl,
+            Entries = new List<DeleteMessageBatchRequestEntry>()
+        };
+        foreach (var message in messages)
+        {
+            deleteRequest.Entries.Add(new DeleteMessageBatchRequestEntry()
+            {
+                ReceiptHandle = message.ReceiptHandle,
+                Id = message.MessageId
+            });
+        }
+        
+        var deleteResponse = await _amazonSQSClient.DeleteMessageBatchAsync(deleteRequest);
+
+        return deleteResponse.Failed.Any();
+    }
+    // snippet-end:[TopicsAndQueues.dotnetv3.DeleteMessageBatch]
 
     // snippet-start:[TopicsAndQueues.dotnetv3.DeleteQueue]
     /// <summary>

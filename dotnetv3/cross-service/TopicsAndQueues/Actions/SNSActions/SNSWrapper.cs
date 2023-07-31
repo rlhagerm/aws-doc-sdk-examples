@@ -1,14 +1,9 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier:  Apache-2.0
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Net;
 using Amazon.SimpleNotificationService;
 using Amazon.SimpleNotificationService.Model;
-using Microsoft.Extensions.Logging;
 
 namespace SNSActions;
 
@@ -20,18 +15,14 @@ namespace SNSActions;
 public class SNSWrapper
 {
     private readonly IAmazonSimpleNotificationService _amazonSNSClient;
-    private readonly ILogger<SNSWrapper> _logger;
 
     /// <summary>
     /// Constructor for the Amazon SNS wrapper.
     /// </summary>
     /// <param name="amazonSQS">The injected Amazon SNS client.</param>
-    /// <param name="logger">The injected logger for the wrapper.</param>
-    public SNSWrapper(IAmazonSimpleNotificationService amazonSNS, ILogger<SNSWrapper> logger)
-
+    public SNSWrapper(IAmazonSimpleNotificationService amazonSNS)
     {
         _amazonSNSClient = amazonSNS;
-        _logger = logger;
     }
 
     // snippet-start:[TopicsAndQueues.dotnetv3.CreateTopic]
@@ -73,5 +64,106 @@ public class SNSWrapper
     }
     // snippet-start:[TopicsAndQueues.dotnetv3.CreateTopic]
 
+    // snippet-start:[TopicsAndQueues.dotnetv3.Subscribe]
+    /// <summary>
+    /// Subscribe a queue to a topic with optional filters.
+    /// </summary>
+    /// <param name="topicArn">The ARN of the topic.</param>
+    /// <param name="useFifoTopic">The optional filtering policy for the subscription.</param>
+    /// <param name="queueArn">The ARN of the queue.</param>
+    /// <returns>The ARN of the new subscription.</returns>
+    public async Task<string> SubscribeTopicWithFilter(string topicArn, string? filterPolicy, string queueArn)
+    {
+        var subscribeRequest = new SubscribeRequest()
+        {
+            TopicArn = topicArn,
+            Protocol = "sqs",
+            Endpoint = queueArn
+        };
+
+        if (!string.IsNullOrEmpty(filterPolicy))
+        {
+            subscribeRequest.Attributes = new Dictionary<string, string> { { "FilterPolicy", filterPolicy } };
+        }
+
+        var subscribeResponse = await _amazonSNSClient.SubscribeAsync(subscribeRequest);
+        return subscribeResponse.SubscriptionArn;
+    }
+    // snippet-start:[TopicsAndQueues.dotnetv3.Subscribe]
+
+    // snippet-start:[TopicsAndQueues.dotnetv3.Publish]
+    /// <summary>
+    /// Subscribe a queue to a topic with optional filters.
+    /// </summary>
+    /// <param name="topicArn">The ARN of the topic.</param>
+    /// <param name="message">The message to publish.</param>
+    /// <param name="attribute">The optional tone attribute for the message.</param>
+    /// <param name="deduplicationId">The optional deduplication ID for the message.</param>
+    /// <param name="groupId">The optional group ID for the message.</param>
+    /// <returns>The ID of the message published.</returns>
+    public async Task<string> PublishToTopicWithToneAttribute(
+        string topicArn,
+        string message,
+        string? attribute = null, 
+        string? deduplicationId = null, 
+        string? groupId = null)
+    {
+        var publishRequest = new PublishRequest()
+        {
+            TopicArn = topicArn,
+            Message = message,
+            MessageDeduplicationId = deduplicationId,
+            MessageGroupId = groupId
+        };
+
+        if (attribute != null)
+        {
+            // Add the tone attribute if it exists.
+            publishRequest.MessageAttributes =
+                new Dictionary<string, MessageAttributeValue>
+                {
+                    { "tone", new MessageAttributeValue() { StringValue = attribute, DataType = "String"} }
+                };
+        }
+
+        var publishResponse = await _amazonSNSClient.PublishAsync(publishRequest);
+        return publishResponse.MessageId;
+    }
+    // snippet-start:[TopicsAndQueues.dotnetv3.Publish]
+
+
+    // snippet-start:[TopicsAndQueues.dotnetv3.Unsubscribe]
+    /// <summary>
+    /// Unsubscribe to a topic by a subscription ARN.
+    /// </summary>
+    /// <param name="subscriptionArn">The ARN of the subscription.</param>
+    /// <returns>True if successful.</returns>
+    public async Task<bool> UnsubscribeByArn(string subscriptionArn)
+    {
+        var unsubscribeResponse = await _amazonSNSClient.UnsubscribeAsync(
+            new UnsubscribeRequest()
+            {
+                SubscriptionArn = subscriptionArn
+            });
+        return unsubscribeResponse.HttpStatusCode == HttpStatusCode.OK;
+    }
+    // snippet-start:[TopicsAndQueues.dotnetv3.Unsubscribe]
+
+    // snippet-start:[TopicsAndQueues.dotnetv3.DeleteTopic]
+    /// <summary>
+    /// Delete a topic by a its topic ARN.
+    /// </summary>
+    /// <param name="topicArn">The ARN of the topic.</param>
+    /// <returns>True if successful.</returns>
+    public async Task<bool> DeleteTopicByArn(string topicArn)
+    {
+        var deleteResponse = await _amazonSNSClient.DeleteTopicAsync(
+            new DeleteTopicRequest()
+            {
+                TopicArn = topicArn
+            });
+        return deleteResponse.HttpStatusCode == HttpStatusCode.OK;
+    }
+    // snippet-start:[TopicsAndQueues.dotnetv3.DeleteTopic]
 }
 // snippet-end:[TopicsAndQueues.dotnetv3.SNSWrapper]

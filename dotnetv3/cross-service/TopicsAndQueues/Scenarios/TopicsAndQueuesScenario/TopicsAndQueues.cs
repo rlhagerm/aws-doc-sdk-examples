@@ -1,15 +1,18 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier:  Apache-2.0
 
+using System.Text.Json;
+
 using Amazon.SimpleNotificationService;
-using Amazon.SimpleNotificationService.Model;
 using Amazon.SQS;
-using Microsoft.Extensions.Configuration;
+using Amazon.SQS.Model;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Logging.Debug;
+
 using SNSActions;
 using SQSActions;
 
@@ -38,18 +41,23 @@ namespace TopicsAndQueuesScenario;
  */
 
 // snippet-start:[TopicsAndQueues.dotnetv3.Scenario]
+/// <summary>
+/// Console application to run a workflow scenario for topics and queues.
+/// </summary>
 public class TopicsAndQueues
 {
-    private static ILogger logger = null!;
     private static SNSWrapper _snsWrapper = null!;
     private static SQSWrapper _sqsWrapper = null!;
-    private static IConfiguration _configuration = null!;
-    private static int _queueCount = 2;
+    
     private static bool _useFifoTopic = false;
     private static bool _useContentBasedDeduplication = false;
     private static string _topicName = null!;
     private static string _topicArn = null!;
-    private static string[] _queueUrls = new string[_queueCount];
+
+    private static readonly int _queueCount = 2;
+    private static readonly string[] _queueUrls = new string[_queueCount];
+    private static readonly string[] _subscriptionArns = new string[_queueCount];
+    private static readonly string[] _tones = {"cheerful", "funny", "serious", "sincere"};
 
     static async Task Main(string[] args)
     {
@@ -67,21 +75,32 @@ public class TopicsAndQueues
             )
             .Build();
 
-        _configuration = new ConfigurationBuilder()
-            .SetBasePath(Directory.GetCurrentDirectory())
-            .AddJsonFile("settings.json") // Load settings from .json file.
-            .AddJsonFile("settings.local.json",
-                true) // Optionally, load local settings.
-            .Build();
-
-        logger = LoggerFactory.Create(builder => { builder.AddConsole(); })
-            .CreateLogger<TopicsAndQueues>();
-
+        ServicesSetup(host);
         PrintDescription();
 
+        try
+        {
+            await SetupTopic();
 
+            await SetupQueues();
 
-        ServicesSetup(host);
+            await PublishMessages();
+
+            foreach (var queueUrl in _queueUrls)
+            {
+               var messages = await PollForMessages(queueUrl);
+                await DeleteMessages(queueUrl, messages);
+            }
+            await CleanupResources();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(new string('-', 80));
+            Console.WriteLine($"There was a problem running the scenario: {ex.Message}");
+            await CleanupResources();
+            Console.WriteLine(new string('-', 80));
+        }
+
     }
 
     /// <summary>
@@ -94,26 +113,8 @@ public class TopicsAndQueues
         _sqsWrapper = host.Services.GetRequiredService<SQSWrapper>();
     }
 
-    // snippet-start:[TopicsAndQueues.dotnetv3.CreatePolicy]
     /// <summary>
-    /// Create a policy for the queue.
-    /// </summary>
-    /// <returns>The role Amazon Resource Name (ARN).</returns>
-    public static async Task<string> CreatePolicy(string queueArn, string topicArn)
-    {
-        Console.WriteLine(new string('-', 80));
-        Console.WriteLine("Creating a role to use with EventBridge and attaching managed policy AmazonEventBridgeFullAccess.");
-        Console.WriteLine(new string('-', 80));
-
-
-        // Allow time for the role to be ready.
-        Thread.Sleep(10000);
-        return "";
-    }
-    // snippet-end:[EventBridge.dotnetv3.CreateRole]
-
-    /// <summary>
-    /// Clean up the resources from the scenario.
+    /// Print a description for the tasks in the workflow.
     /// </summary>
     /// <returns>Async task.</returns>
     private static void PrintDescription()
@@ -124,11 +125,6 @@ public class TopicsAndQueues
         Console.WriteLine(new string('-', 80));
         Console.WriteLine($"In this workflow, you will create an SNS topic and subscribe {_queueCount} SQS queues to the topic." +
                           $"\r\nYou can select from several options for configuring the topic and the subscriptions for the 2 queues." +
-                          $"\r\nYou can then post to the topic and see the results in the queues.\r\n");
-
-        Console.WriteLine(new string('-', 80));
-        Console.WriteLine($"SNS topics can be configured as FIFO (First-In-First-Out)." +
-                          $"\r\nFIFO topics deliver messages in order and support deduplication and message filtering." +
                           $"\r\nYou can then post to the topic and see the results in the queues.\r\n");
 
         Console.WriteLine(new string('-', 80));
@@ -149,22 +145,24 @@ public class TopicsAndQueues
 
         if (_useFifoTopic)
         {
-            Console.Write("Enter a name for your SNS topic:");
-            _topicName = Console.ReadLine();
+            Console.WriteLine(new string('-', 80));
+            Console.WriteLine("Enter a name for your SNS topic: ");
+            _topicName = Console.ReadLine() ?? "example-topic";
             Console.WriteLine(
-                "Because you have selected a FIFO topic, '.fifo' must be appended to the topic name.");
-            _topicName += ".fifo";
+                "Because you have selected a FIFO topic, '.fifo' must be appended to the topic name.\r\n");
 
+            Console.WriteLine(new string('-', 80));
             Console.WriteLine($"Because you have chosen a FIFO topic, deduplication is supported." +
                               $"\r\nDeduplication IDs are either set in the message or automatically generated " +
                               $"\r\nfrom content using a hash function.\r\n" +
-                              $"If a message is successfully published to an SNS FIFO topic, any message " +
-                              $"published and determined to have the same deduplication ID, " +
-                              $"within the five-minute deduplication interval, is accepted but not delivered.\r\n" +
-                              $"For more information about deduplication, " +
-                              $"see https://docs.aws.amazon.com/sns/latest/dg/fifo-message-dedup.html.");
+                              $"\r\nIf a message is successfully published to an SNS FIFO topic, any message " +
+                              $"\r\npublished and determined to have the same deduplication ID, " +
+                              $"\r\nwithin the five-minute deduplication interval, is accepted but not delivered.\r\n" +
+                              $"\r\nFor more information about deduplication, " +
+                              $"\r\nsee https://docs.aws.amazon.com/sns/latest/dg/fifo-message-dedup.html.");
 
             _useContentBasedDeduplication = GetYesNoResponse("Use content-based deduplication instead of entering a deduplication ID?");
+            Console.WriteLine(new string('-', 80));
         }
 
         _topicArn = await _snsWrapper.CreateTopicWithName(_topicName, _useFifoTopic, _useContentBasedDeduplication);
@@ -184,13 +182,12 @@ public class TopicsAndQueues
     {
         Console.WriteLine(new string('-', 80));
         Console.WriteLine($"Now you will create {_queueCount} Amazon Simple Queue Service (Amazon SQS) queues to subscribe to the topic.");
-        Console.WriteLine(new string('-', 80));
 
         // Repeat this section for each queue.
         for (int i = 0; i < _queueCount; i++)
         {
-            Console.Write("Enter a name for an Amazon SQS queue");
-            var queueName = Console.ReadLine();
+            Console.WriteLine("Enter a name for an Amazon SQS queue:");
+            var queueName = Console.ReadLine() ?? $"example-queue-{i}";
             if (_useFifoTopic)
             {
                 // Only explain this once.
@@ -198,7 +195,6 @@ public class TopicsAndQueues
                 {
                     Console.WriteLine(
                         "Because you have selected a FIFO topic, '.fifo' must be appended to the queue name.");
-                    queueName += ".fifo";
                 }
 
                 var queueUrl = await _sqsWrapper.CreateQueueWithName(queueName, _useFifoTopic);
@@ -214,7 +210,8 @@ public class TopicsAndQueues
                    Console.WriteLine(
                        $"The queue URL is used to retrieve the queue ARN,\r\n" +
                        $"which is used to create a subscription.");
-               }
+                   Console.WriteLine(new string('-', 80));
+                }
 
                var queueArn = await _sqsWrapper.GetQueueArnByUrl(queueUrl);
 
@@ -234,10 +231,18 @@ public class TopicsAndQueues
         Console.WriteLine(new string('-', 80));
     }
 
-    public static async Task SetupFilters(int queueCount, string queueARN, string queueName)
+    /// <summary>
+    /// Set up filters with user options for a queue.
+    /// </summary>
+    /// <param name="queueCount">The number of this queue.</param>
+    /// <param name="queueArn">The ARN of the queue.</param>
+    /// <param name="queueName">The name of the queue.</param>
+    /// <returns>Async Task.</returns>
+    public static async Task SetupFilters(int queueCount, string queueArn, string queueName)
     {
         if (_useFifoTopic)
         {
+            Console.WriteLine(new string('-', 80));
             // Only explain this once.
             if (queueCount == 0)
             {
@@ -253,22 +258,210 @@ public class TopicsAndQueues
                 Console.WriteLine(
                     "For this example, you can filter messages by a" +
                     "TONE attribute.");
-
-                var useFilter = GetYesNoResponse($"Filter messages for {queueName}'s subscription to the topic?");
             }
+
+            var useFilter = GetYesNoResponse($"Filter messages for {queueName}'s subscription to the topic?");
+
+            string? filterPolicy = null;
+            if (useFilter)
+            {
+                filterPolicy = CreateFilterPolicy();
+            }
+            var subscriptionArn = await _snsWrapper.SubscribeTopicWithFilter(_topicArn, filterPolicy,
+                queueArn);
+            _subscriptionArns[queueCount] = subscriptionArn;
+
+            Console.WriteLine(
+                $"The queue {queueName} has been subscribed to the topic {_topicName} " +
+                $"with the subscription ARN {subscriptionArn}");
+            Console.WriteLine(new string('-', 80));
         }
     }
 
+    /// <summary>
+    /// Use user input to create a filter policy for a subscription.
+    /// </summary>
+    /// <returns>The serialized filter policy.</returns>
+    public static string CreateFilterPolicy()
+    {
+        Console.WriteLine(new string('-', 80));
+        Console.WriteLine(
+            $"You can filter messages by one or more of the following" +
+            $"TONE attributes.");
+
+        List<string> filterSelections = new List<string>();
+
+        var selectionNumber = 0;
+        do
+        {
+            Console.WriteLine(
+                $"Enter a number to add a TONE filter, or enter 0 to stop adding filters.");
+            for (int i = 0; i < 10 && i < _tones.Length; i++)
+            {
+                Console.WriteLine($"\t{i + 1}. {_tones[i]}");
+            }
+
+            var selection = Console.ReadLine() ?? "0";
+            int.TryParse(selection, out selectionNumber);
+            if (selectionNumber > 0 && !filterSelections.Contains(_tones[selectionNumber - 1]))
+            {
+                filterSelections.Add(_tones[selectionNumber - 1]);
+            }
+        } while (selectionNumber != 0);
+
+        var filters = new Dictionary<string, List<string>>
+        {
+            { "tone", filterSelections }
+        };
+        string filterPolicy = JsonSerializer.Serialize(filters);
+        return filterPolicy;
+    }
+
+    /// <summary>
+    /// Publish messages using user settings.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    public static async Task PublishMessages()
+    {
+        Console.WriteLine("Now we can publish messages.");
+
+        var keepSendingMessages = true;
+        int messageCount = 1;
+        string? deduplicationId = null;
+        string? toneAttribute = null;
+        while (keepSendingMessages)
+        {
+            Console.WriteLine("Enter a message to publish.");
+            var message = Console.ReadLine() ?? "This is a sample message";
+
+            if (_useFifoTopic)
+            {
+                Console.WriteLine("Because you are using a FIFO topic, you must set a message group ID." +
+                                  "\r\nAll messages within the same group will be received in the order " +
+                                  "they were published.");
+
+                Console.WriteLine("Enter a message group ID for this message.");
+                var messageGroupId = Console.ReadLine() ?? messageCount.ToString();
+
+                if (!_useContentBasedDeduplication)
+                {
+                    Console.WriteLine("Because you are not using content-based deduplication, " +
+                                      "you must enter a deduplication ID.");
+
+                    Console.WriteLine("Enter a deduplication ID for this message.");
+                    deduplicationId = Console.ReadLine() ?? messageCount.ToString();
+                }
+
+                if (GetYesNoResponse("Add an attribute to this message?"))
+                {
+                    Console.WriteLine("Enter a number to for an attribute.");
+                    for (int i = 0; i < 10 && i < _tones.Length; i++)
+                    {
+                        Console.WriteLine($"\t{i + 1}. {_tones[i]}");
+                    }
+
+                    var selection = Console.ReadLine() ?? "0";
+                    int.TryParse(selection, out var selectionNumber);
+                    
+                    if (selectionNumber > 0 && selectionNumber < _tones.Length)
+                    {
+                        toneAttribute = _tones[selectionNumber - 1];
+                    }
+                }
+
+                var messageID = await _snsWrapper.PublishToTopicWithToneAttribute(
+                    _topicArn, message, toneAttribute, deduplicationId, messageGroupId);
+
+                Console.WriteLine($"Message published with id {messageID}.");
+                messageCount++;
+            }
+
+            keepSendingMessages = GetYesNoResponse("Send another message?");
+        }
+    }
+
+    /// <summary>
+    /// Poll for the published messages to see the results of the user's choices.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    public static async Task<List<Message>> PollForMessages(string queueUrl)
+    {
+        Console.WriteLine(new string('-', 80));
+        Console.WriteLine($"Now the SQS queue at {queueUrl} will be polled to retrieve the messages." +
+                          "\r\nPress any key to continue.");
+        Console.ReadLine();
+
+        var moreMessages = true;
+        var messages = new List<Message>();
+        while (moreMessages)
+        {
+            var newMessages = await _sqsWrapper.ReceiveMessagesByUrl(queueUrl, 10);
+
+            moreMessages = newMessages.Any();
+            if (moreMessages)
+            {
+                messages.AddRange(newMessages);
+            }
+        }
+
+        Console.WriteLine($"{messages.Count} message(s) were received by the queue at {queueUrl}.");
+
+        foreach (var message in messages)
+        {
+            Console.WriteLine("\tMessage:" +
+                              $"\n\t{message.Body}");
+        }
+
+        Console.WriteLine(new string('-', 80));
+        return messages;
+    }
+
+    /// <summary>
+    /// Delete the message using handles in a batch.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    public static async Task DeleteMessages(string queueUrl, List<Message> messages)
+    {
+        Console.WriteLine(new string('-', 80));
+        Console.WriteLine("Now we can delete the messages in this queue in a batch.");
+        await _sqsWrapper.DeleteMessageBatchByUrl(queueUrl, messages);
+        Console.WriteLine(new string('-', 80));
+    }
 
     /// <summary>
     /// Clean up the resources from the scenario.
     /// </summary>
     /// <returns>Async task.</returns>
-    private static async Task CleanupResources(string topicArn)
+    private static async Task CleanupResources()
     {
         Console.WriteLine(new string('-', 80));
         Console.WriteLine($"Clean up resources.");
 
+        foreach (var queueUrl in _queueUrls)
+        {
+            if (!string.IsNullOrEmpty(queueUrl))
+            {
+                var deleteQueue = GetYesNoResponse($"Delete queue with url {queueUrl}?");
+                if (deleteQueue)
+                {
+                    await _sqsWrapper.DeleteQueueByUrl(queueUrl);
+                }
+            }
+        }
+
+        foreach (var subscriptionArn in _subscriptionArns)
+        {
+            if (!string.IsNullOrEmpty(subscriptionArn))
+            {
+                await _snsWrapper.UnsubscribeByArn(subscriptionArn);
+            }
+        }
+
+        var deleteTopic = GetYesNoResponse($"Delete topic {_topicName}?");
+        if (deleteTopic)
+        {
+            await _snsWrapper.DeleteTopicByArn(_topicArn);
+        }
 
         Console.WriteLine(new string('-', 80));
     }
