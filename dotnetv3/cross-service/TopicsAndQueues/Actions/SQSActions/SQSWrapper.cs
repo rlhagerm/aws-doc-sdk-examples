@@ -25,7 +25,6 @@ public class SQSWrapper
         _amazonSQSClient = amazonSQS;
     }
 
-
     // snippet-start:[TopicsAndQueues.dotnetv3.CreateQueue]
     /// <summary>
     /// Create a queue with a specific name.
@@ -35,9 +34,19 @@ public class SQSWrapper
     /// <returns>The url for the queue.</returns>
     public async Task<string> CreateQueueWithName(string queueName, bool useFifoQueue)
     {
+        int maxMessage = 256 * 1024;
+        var queueAttributes = new Dictionary<string, string>
+        {
+            {
+                QueueAttributeName.MaximumMessageSize,
+                maxMessage.ToString()
+            }
+        };
+
         var createQueueRequest = new CreateQueueRequest()
         {
             QueueName = queueName,
+            Attributes = queueAttributes
         };
 
         if (useFifoQueue)
@@ -48,11 +57,9 @@ public class SQSWrapper
                 createQueueRequest.QueueName = queueName + ".fifo";
             }
 
-            // Add the attributes from the method parameters.
-            createQueueRequest.Attributes = new Dictionary<string, string>
-            {
-                { QueueAttributeName.FifoQueue, "true" }
-            };
+            // Add an attribute for a FIFO queue.
+            createQueueRequest.Attributes.Add(
+                QueueAttributeName.FifoQueue, "true");
         }
 
         var createResponse = await _amazonSQSClient.CreateQueueAsync(
@@ -85,26 +92,9 @@ public class SQSWrapper
     }
     // snippet-end:[TopicsAndQueues.dotnetv3.GetQueueAttributes]
 
-    // snippet-start:[TopicsAndQueues.dotnetv3.GetQueueAttributes]
-    /// <summary>
-    /// Get the policy by requesting the attributes for the queue.
-    /// </summary>
-    /// <param name="queueUrl">The url for the queue.</param>
-    /// <returns>The policy for the queue.</returns>
-    public async Task<string> GetQueuePolicyByUrl(string queueUrl)
-    {
-        var attributesResponse = await _amazonSQSClient.GetQueueAttributesAsync(
-            new GetQueueAttributesRequest()
-            {
-                QueueUrl = queueUrl
-            });
-        return attributesResponse.Policy;
-    }
-    // snippet-end:[TopicsAndQueues.dotnetv3.GetQueueAttributes]
-
     // snippet-start:[TopicsAndQueues.dotnetv3.SetQueueAttributes]
     /// <summary>
-    /// Set the policy by setting the attributes for the queue using the topic and queue ARNs.
+    /// Set the policy attribute of a queue for a topic.
     /// </summary>
     /// <param name="queueArn">The ARN of the queue.</param>
     /// <param name="topicArn">The ARN of the topic.</param>
@@ -141,7 +131,7 @@ public class SQSWrapper
 
     // snippet-start:[TopicsAndQueues.dotnetv3.ReceiveMessage]
     /// <summary>
-    /// Receive messages from a queue by its url.
+    /// Receive messages from a queue by its URL.
     /// </summary>
     /// <param name="queueUrl">The url of the queue.</param>
     /// <returns>The list of messages.</returns>
@@ -191,7 +181,7 @@ public class SQSWrapper
 
     // snippet-start:[TopicsAndQueues.dotnetv3.DeleteQueue]
     /// <summary>
-    /// Delete a queue by its url.
+    /// Delete a queue by its URL.
     /// </summary>
     /// <param name="queueUrl">The url of the queue.</param>
     /// <returns>True if successful.</returns>

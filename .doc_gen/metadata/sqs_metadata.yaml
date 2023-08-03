@@ -5,6 +5,13 @@ sqs_Hello:
   synopsis: get started using &SQS;.
   category: Hello
   languages:
+    .NET:
+      versions:
+        - sdk_version: 3
+          github: dotnetv3/SQS
+          excerpts:
+            - snippet_tags:
+                - TopicsAndQueues.dotnetv3.HelloSQS
     Kotlin:
       versions:
         - sdk_version: 1
@@ -48,9 +55,9 @@ sqs_CreateQueue:
           github: dotnetv3/SQS
           sdkguide:
           excerpts:
-            - description:
+            - description: Create a queue with a specific name.
               snippet_tags:
-                - SQS.dotnetv3.CreateQueueExample
+                - TopicsAndQueues.dotnetv3.CreateQueue
             - description: Create an &SQS; queue and send a message to it.
               snippet_tags:
                 - SQS.dotnetv3.CreateSendExample
@@ -326,9 +333,9 @@ sqs_DeleteQueue:
           github: dotnetv3/SQS
           sdkguide:
           excerpts:
-            - description:
+            - description: Delete a queue by its URL.
               snippet_tags:
-                - SQS.dotnetv3.DeleteQueueExample
+                - TopicsAndQueues.dotnetv3.DeleteQueue
     Kotlin:
       versions:
         - sdk_version: 1
@@ -423,9 +430,6 @@ sqs_SendMessage:
           github: dotnetv3/SQS
           sdkguide:
           excerpts:
-            - description:
-              snippet_tags:
-                - SQS.dotnetv3.SendMessageToQueueExample
             - description: Create an &SQS; queue and send a message to it.
               snippet_tags:
                 - SQS.dotnetv3.CreateSendExample
@@ -565,9 +569,9 @@ sqs_ReceiveMessage:
           github: dotnetv3/SQS
           sdkguide:
           excerpts:
-            - description:
+            - description: Receive messages from a queue by its URL.
               snippet_tags:
-                - SQS.dotnetv3.ReceiveFromQueueExample
+                - TopicsAndQueues.dotnetv3.ReceiveMessage
             - description: Receive a message from an &SQS; queue, and then delete the message.
               snippet_tags:
                 - SQS.dotnetv3.ReceiveDeleteExample
@@ -675,9 +679,6 @@ sqs_DeleteMessage:
           github: dotnetv3/SQS
           sdkguide:
           excerpts:
-            - description:
-              snippet_tags:
-                - SQS.dotnetv3.DeleteMessageExample
             - description: Receive a message from an &SQS; queue and then delete the message.
               snippet_tags:
                 - SQS.dotnetv3.ReceiveDeleteExample
@@ -750,6 +751,15 @@ sqs_DeleteMessageBatch:
   synopsis: delete a batch of messages from an &SQS; queue.
   category:
   languages:
+    .NET:
+      versions:
+        - sdk_version: 3
+          github: dotnetv3/cross-service/TopicsAndQueues
+          sdkguide:
+          excerpts:
+            - description:
+              snippet_tags:
+                - TopicsAndQueues.dotnetv3.DeleteMessageBatch
     Python:
       versions:
         - sdk_version: 3
@@ -832,12 +842,12 @@ sqs_GetQueueAttributes:
     .NET:
       versions:
         - sdk_version: 3
-          github: dotnetv3/SQS
+          github: dotnetv3/cross-service/TopicsAndQueues
           sdkguide:
           excerpts:
             - description:
               snippet_tags:
-                - SQS.dotnetv3.GetQueueAttributesExample
+                - TopicsAndQueues.dotnetv3.GetQueueAttributes
     C++:
       versions:
         - sdk_version: 1
@@ -928,6 +938,15 @@ sqs_SetQueueAttributes:
   synopsis: set the attributes for an &SQS; queue.
   category:
   languages:
+    .NET:
+      versions:
+        - sdk_version: 3
+          github: dotnetv3/cross-service/TopicsAndQueues
+          sdkguide:
+          excerpts:
+            - description: Set the policy attribute of a queue for a topic.
+              snippet_tags:
+                - TopicsAndQueues.dotnetv3.SetQueueAttributes
     C++:
       versions:
         - sdk_version: 1
@@ -977,6 +996,15 @@ sqs_Scenario_TopicsAndQueues:
     - Poll the queues for messages received.
   category: Scenarios
   languages:
+    .NET:
+      versions:
+        - sdk_version: 1
+          github: dotnetv3/cross-service/TopicsAndQueues
+          excerpts:
+            - description:
+              snippet_tags:
+                - cpp.example_code.cross-service.topics_and_queues.config
+                - cpp.example_code.cross-service.topics_and_queues.messaging_with_topics_and_queues
     C++:
       versions:
         - sdk_version: 1
@@ -984,7 +1012,7 @@ sqs_Scenario_TopicsAndQueues:
           excerpts:
             - description:
               snippet_tags:
-                - cpp.example_code.cross-service.topics_and_queues.config
+                - TopicsAndQueues.dotnetv3.SQSWrapper
                 - cpp.example_code.cross-service.topics_and_queues.messaging_with_topics_and_queues
   services:
     sns: {CreateTopic, Subscribe, Publish, Unsubscribe, DeleteTopic}
