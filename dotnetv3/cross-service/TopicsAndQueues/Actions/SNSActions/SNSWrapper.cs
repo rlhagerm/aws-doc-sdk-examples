@@ -93,18 +93,20 @@ public class SNSWrapper
 
     // snippet-start:[TopicsAndQueues.dotnetv3.Publish]
     /// <summary>
-    /// Subscribe a queue to a topic with optional filters.
+    /// Publish a message to a topic with an attribute and optional deduplication and group IDs.
     /// </summary>
     /// <param name="topicArn">The ARN of the topic.</param>
     /// <param name="message">The message to publish.</param>
-    /// <param name="attribute">The optional tone attribute for the message.</param>
+    /// <param name="attributeName">The optional attribute for the message.</param>
+    /// <param name="attributeValue">The optional attribute value for the message.</param>
     /// <param name="deduplicationId">The optional deduplication ID for the message.</param>
     /// <param name="groupId">The optional group ID for the message.</param>
     /// <returns>The ID of the message published.</returns>
-    public async Task<string> PublishToTopicWithToneAttribute(
+    public async Task<string> PublishToTopicWithAttribute(
         string topicArn,
         string message,
-        string? attribute = null, 
+        string? attributeName = null,
+        string? attributeValue = null,
         string? deduplicationId = null, 
         string? groupId = null)
     {
@@ -116,13 +118,13 @@ public class SNSWrapper
             MessageGroupId = groupId
         };
 
-        if (attribute != null)
+        if (attributeValue != null)
         {
-            // Add the tone attribute if it exists.
+            // Add the string attribute if it exists.
             publishRequest.MessageAttributes =
                 new Dictionary<string, MessageAttributeValue>
                 {
-                    { "tone", new MessageAttributeValue() { StringValue = attribute, DataType = "String"} }
+                    { attributeName!, new MessageAttributeValue() { StringValue = attributeValue, DataType = "String"} }
                 };
         }
 
@@ -134,7 +136,7 @@ public class SNSWrapper
 
     // snippet-start:[TopicsAndQueues.dotnetv3.Unsubscribe]
     /// <summary>
-    /// Unsubscribe to a topic by a subscription ARN.
+    /// Unsubscribe from a topic by a subscription ARN.
     /// </summary>
     /// <param name="subscriptionArn">The ARN of the subscription.</param>
     /// <returns>True if successful.</returns>
@@ -151,7 +153,7 @@ public class SNSWrapper
 
     // snippet-start:[TopicsAndQueues.dotnetv3.DeleteTopic]
     /// <summary>
-    /// Delete a topic by a its topic ARN.
+    /// Delete a topic by its topic ARN.
     /// </summary>
     /// <param name="topicArn">The ARN of the topic.</param>
     /// <returns>True if successful.</returns>

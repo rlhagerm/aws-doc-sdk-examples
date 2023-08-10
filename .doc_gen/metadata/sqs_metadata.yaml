@@ -8,7 +8,7 @@ sqs_Hello:
     .NET:
       versions:
         - sdk_version: 3
-          github: dotnetv3/SQS
+          github: dotnetv3/cross-service/TopicsAndQueues
           excerpts:
             - snippet_tags:
                 - TopicsAndQueues.dotnetv3.HelloSQS
@@ -52,7 +52,7 @@ sqs_CreateQueue:
     .NET:
       versions:
         - sdk_version: 3
-          github: dotnetv3/SQS
+          github: dotnetv3/cross-service/TopicsAndQueues
           sdkguide:
           excerpts:
             - description: Create a queue with a specific name.
@@ -330,7 +330,7 @@ sqs_DeleteQueue:
     .NET:
       versions:
         - sdk_version: 3
-          github: dotnetv3/SQS
+          github: dotnetv3/cross-service/TopicsAndQueues
           sdkguide:
           excerpts:
             - description: Delete a queue by its URL.
@@ -566,7 +566,7 @@ sqs_ReceiveMessage:
     .NET:
       versions:
         - sdk_version: 3
-          github: dotnetv3/SQS
+          github: dotnetv3/cross-service/TopicsAndQueues
           sdkguide:
           excerpts:
             - description: Receive messages from a queue by its URL.
@@ -998,13 +998,18 @@ sqs_Scenario_TopicsAndQueues:
   languages:
     .NET:
       versions:
-        - sdk_version: 1
+        - sdk_version: 3
           github: dotnetv3/cross-service/TopicsAndQueues
           excerpts:
-            - description:
+            - description: Run an interactive scenario at a command prompt.
               snippet_tags:
-                - cpp.example_code.cross-service.topics_and_queues.config
-                - cpp.example_code.cross-service.topics_and_queues.messaging_with_topics_and_queues
+                - TopicsAndQueues.dotnetv3.Scenario
+            - description: Create a class that wraps &SQS; operations.
+              snippet_tags:
+                - TopicsAndQueues.dotnetv3.SQSWrapper
+            - description: Create a class that wraps &SNS; operations.
+              snippet_tags:
+                - TopicsAndQueues.dotnetv3.SNSWrapper
     C++:
       versions:
         - sdk_version: 1
@@ -1012,7 +1017,7 @@ sqs_Scenario_TopicsAndQueues:
           excerpts:
             - description:
               snippet_tags:
-                - TopicsAndQueues.dotnetv3.SQSWrapper
+                - cpp.example_code.cross-service.topics_and_queues.config
                 - cpp.example_code.cross-service.topics_and_queues.messaging_with_topics_and_queues
   services:
     sns: {CreateTopic, Subscribe, Publish, Unsubscribe, DeleteTopic}

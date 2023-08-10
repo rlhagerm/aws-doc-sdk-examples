@@ -382,8 +382,8 @@ public static class TopicsAndQueues
                     }
                 }
 
-                var messageID = await SnsWrapper.PublishToTopicWithToneAttribute(
-                    _topicArn, message, toneAttribute, deduplicationId, messageGroupId);
+                var messageID = await SnsWrapper.PublishToTopicWithAttribute(
+                    _topicArn, message, "tone", toneAttribute, deduplicationId, messageGroupId);
 
                 Console.WriteLine($"Message published with id {messageID}.");
             }
