@@ -389,7 +389,7 @@ sagemaker_Scenario_Pipelines:
   title: Get started with &SM; geospatial jobs in a pipeline using an &AWS; SDK
   title_abbrev: Get started with geospatial jobs and pipelines
   guide_topic:
-    title: this related post on Community.aws
+    title: "Create and run SageMaker pipelines using AWS SDKs" on Community.aws
     url: https://community.aws/posts/create-and-run-sagemaker-pipelines-using-aws-sdks
   synopsis_list:
     - Set up resources for a pipeline.
