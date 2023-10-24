@@ -49,15 +49,6 @@ namespace HighLevelBatchWriteItemExample
             await bookBatch.ExecuteAsync();
         }
 
-        private static async Task Main()
-        {
-            AmazonDynamoDBClient client = new AmazonDynamoDBClient();
-            DynamoDBContext context = new DynamoDBContext(client);
-
-            await SingleTableBatchWrite(context);
-            await MultiTableBatchWrite(context);
-        }
-
         public static async Task MultiTableBatchWrite(IDynamoDBContext context)
         {
             // New Forum item.
@@ -88,6 +79,15 @@ namespace HighLevelBatchWriteItemExample
 
             Console.WriteLine("Performing batch write in MultiTableBatchWrite().");
             await superBatch.ExecuteAsync();
+        }
+
+        private static async Task Main()
+        {
+            AmazonDynamoDBClient client = new AmazonDynamoDBClient();
+            DynamoDBContext context = new DynamoDBContext(client);
+
+            await SingleTableBatchWrite(context);
+            await MultiTableBatchWrite(context);
         }
     }
 
