@@ -1,5 +1,4 @@
 name: dotnet-lint
-
 on:
   push:
     paths:
@@ -22,15 +21,11 @@ jobs:
           dotnet-version: |
             5.0.x
             6.0.x
-
       - name: Checkout files
         uses: actions/checkout@v3
-
       - name: Restore dependencies
         run: dotnet restore
-
       - name: Build
         run: dotnet build
-
       - name: Lint and format
         run: dotnet format --verify-no-changes
