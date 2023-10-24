@@ -1,0 +1,36 @@
+name: dotnet-lint
+
+on:
+  push:
+    paths:
+      - "dotnetv3/**"
+    branches:
+      - main
+  pull_request:
+    paths:
+      - "dotnetv3/**"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: |
+            5.0.x
+            6.0.x
+
+      - name: Checkout files
+      - uses: actions/checkout@v3
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build
+
+      - name: Lint and format
+        run: dotnet format --verify-no-changes
