@@ -27,7 +27,7 @@ jobs:
       - name: Build
         run: |
           cd dotnetv3
-          dotnet build -v=q
+          dotnet build -v=q --property WarningLevel=0 /clp:ErrorsOnly
       - name: Lint and format
         run: |
           cd dotnetv3
