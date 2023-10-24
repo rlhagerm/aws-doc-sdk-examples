@@ -1,4 +1,4 @@
-name: DotNet Lint Check
+name: Dotnet lint check
 on:
   push:
     paths:
@@ -27,7 +27,7 @@ jobs:
       - name: Build
         run: |
           cd dotnetv3
-          dotnet build
+          dotnet build -v=q
       - name: Lint and format
         run: |
           cd dotnetv3
