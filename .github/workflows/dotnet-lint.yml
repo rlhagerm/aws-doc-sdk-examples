@@ -1,4 +1,4 @@
-name: dotnet-lint
+name: DotNet Lint Check
 on:
   push:
     paths:
