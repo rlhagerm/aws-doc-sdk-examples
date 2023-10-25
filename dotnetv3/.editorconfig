@@ -148,3 +148,5 @@ dotnet_diagnostic.SA1101.severity = none
 dotnet_diagnostic.SA1309.severity = none
 # IDE2000: Disallow multiple blank lines.
 dotnet_diagnostic.IDE2000.severity = error
+# IDE0073: Require a file header.
+dotnet_diagnostic.IDE0073.severity = error
