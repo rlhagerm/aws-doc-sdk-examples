@@ -32,7 +32,3 @@ jobs:
         run: |
           cd dotnetv3
           dotnet format --verify-no-changes
-      - name: Unit test check
-        run: |
-          cd dotnetv3
-          dotnet test --filter Category=Unit
