@@ -24,11 +24,11 @@ jobs:
             6.0.x
       - name: Checkout files
         uses: actions/checkout@v3
-      - name: Build
+      - name: Build check
         run: |
           cd dotnetv3
           dotnet build -v=q --property WarningLevel=0 /clp:ErrorsOnly
-      - name: Lint and format
+      - name: Lint and format check
         run: |
           cd dotnetv3
           dotnet format --verify-no-changes
