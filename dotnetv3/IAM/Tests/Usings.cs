@@ -1,4 +1,3 @@
-global using IAMActions;
 global using IamScenariosCommon;
 global using Microsoft.Extensions.Configuration;
 global using Xunit;

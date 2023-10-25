@@ -22,15 +22,12 @@ namespace DescribeCertificateTest
                 It.IsAny<CancellationToken>()
             )).Callback<DescribeCertificateRequest, CancellationToken>((request, token) =>
             {
-                if (request is not null)
-                {
-                }
             }).Returns((DescribeCertificateRequest r, CancellationToken token) =>
             {
                 return Task.FromResult(new DescribeCertificateResponse()
                 {
                     HttpStatusCode = System.Net.HttpStatusCode.OK
-                }); ;
+                });
             });
 
             return mockCertificateManagerClient.Object;

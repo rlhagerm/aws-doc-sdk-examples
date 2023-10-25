@@ -8,7 +8,6 @@ namespace GetTopicAttributesExample
     using System.Collections.Generic;
     using System.Threading.Tasks;
     using Amazon.SimpleNotificationService;
-    using Amazon.SimpleNotificationService.Model;
 
     /// <summary>
     /// This example shows how to retrieve the attributes of an Amazon Simple

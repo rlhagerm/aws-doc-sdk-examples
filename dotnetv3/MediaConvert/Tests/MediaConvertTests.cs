@@ -1,7 +1,6 @@
 using Amazon.MediaConvert;
 using MediaConvertActions;
 using Microsoft.Extensions.Configuration;
-using Xunit.Extensions.Ordering;
 
 namespace MediaConvertTests;
 

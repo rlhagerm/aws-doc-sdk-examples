@@ -133,14 +133,18 @@ file_header_template = Copyright Amazon.com, Inc. or its affiliates. All Rights 
 dotnet_diagnostic.SA1600.severity = none
 dotnet_diagnostic.SA1615.severity = none
 dotnet_diagnostic.SA0001.severity = suggestion
+# IDE0005 remove unused using statements.
+dotnet_diagnostic.IDE0005.severity = error
+# CS0168 do not allow unused variables.
+dotnet_diagnostic.CS0168.severity = error
 # CS8601: nullability warnings
 dotnet_diagnostic.CS8601.severity = suggestion
 dotnet_diagnostic.CS8604.severity = suggestion
-# SA1633: allow custom file header
+# SA1633: allow custom file header.
 dotnet_diagnostic.SA1633.severity = none
-# SA1101: do not require keyword this
+# SA1101: do not require keyword this.
 dotnet_diagnostic.SA1101.severity = none
-# SA1309: allow underscores in field names
+# SA1309: allow underscores in field names.
 dotnet_diagnostic.SA1309.severity = none
-# IDE2000: Disallow multiple blank lines
+# IDE2000: Disallow multiple blank lines.
 dotnet_diagnostic.IDE2000.severity = error

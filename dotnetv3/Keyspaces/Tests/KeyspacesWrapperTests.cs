@@ -179,7 +179,7 @@ namespace KeyspacesTests
                         var resp = await _wrapper.GetTable(_keyspaceName, _tableName);
                     } while (!wasRestored);
                 }
-                catch (ResourceNotFoundException ex)
+                catch (ResourceNotFoundException)
                 {
                     wasRestored = true;
                 }
@@ -220,7 +220,7 @@ namespace KeyspacesTests
                     var resp = await _wrapper.GetTable(_keyspaceName, _tableName);
                 } while (!wasDeleted);
             }
-            catch (ResourceNotFoundException ex)
+            catch (ResourceNotFoundException)
             {
                 wasDeleted = true;
             }
