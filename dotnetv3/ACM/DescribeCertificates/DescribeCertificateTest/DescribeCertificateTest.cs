@@ -37,6 +37,7 @@ namespace DescribeCertificateTest
         }
 
         [Fact]
+        [Trait("Category", "Unit")]
         public async Task ListCertificatesAsyncTest()
         {
             var client = CreateMockACMClient();

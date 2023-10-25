@@ -48,6 +48,7 @@ namespace SNSMessageExampleTest
         }
 
         [Fact]
+        [Trait("Category", "Unit")]
         public async Task TestSendTextMessageAsync()
         {
             var MockSNSClient = CreateMockSNSClient();

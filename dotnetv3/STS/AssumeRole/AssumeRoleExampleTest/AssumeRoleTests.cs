@@ -18,6 +18,7 @@ namespace AssumeRoleExampleTest
         private static readonly RegionEndpoint REGION = RegionEndpoint.USWest2;
 
         [Fact]
+        [Trait("Category", "Unit")]
         public async Task GetCallerIdentityAsyncTest()
         {
             var mockClient = new Mock<AmazonSecurityTokenServiceClient>(REGION);
@@ -44,6 +45,7 @@ namespace AssumeRoleExampleTest
         }
 
         [Fact]
+        [Trait("Category", "Unit")]
         public async Task AssumeRoleAsyncTest()
         {
             // Create the mock client object

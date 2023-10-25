@@ -13,7 +13,7 @@ namespace PartiQL_Batch_Scenario.Tests
             _ = DynamoDBMethods.CreateMovieTableAsync(tableName);
         }
 
-        [Fact(Skip = "Quarantined test.")]
+        [Trait("Category", "Quarantine")]
         public void Dispose()
         {
             _ = DynamoDBMethods.DeleteTableAsync(tableName);

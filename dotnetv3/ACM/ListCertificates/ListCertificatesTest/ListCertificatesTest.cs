@@ -23,9 +23,6 @@ namespace ListCertificatesTest
                 It.IsAny<CancellationToken>()
             )).Callback<ListCertificatesRequest, CancellationToken>((request, token) =>
             {
-                if (request is not null)
-                {
-                }
             }).Returns((ListCertificatesRequest r, CancellationToken token) =>
             {
                 return Task.FromResult(new ListCertificatesResponse()
@@ -38,6 +35,7 @@ namespace ListCertificatesTest
         }
 
         [Fact]
+        [Trait("Category", "Unit")]
         public async Task ListCertificatesAsyncTest()
         {
             var client = CreateMockACMClient();

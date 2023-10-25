@@ -129,6 +129,7 @@ namespace KeyspacesTests
         /// <returns>An async Task.</returns>
         [Fact()]
         [Order(4)]
+        [Trait("Category", "Integration")]
         public async Task GetTableTest()
         {
             var response = await _wrapper.GetTable(_keyspaceName, _tableName);
