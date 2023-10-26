@@ -116,7 +116,6 @@ namespace SSECLowLevelMPUcopyObjectExample
                     BucketName = existingBucketName,
                     Key = sourceKeyName,
                     UploadId = initResponse.UploadId,
-
                 };
                 completeRequest.AddPartETags(uploadResponses);
 

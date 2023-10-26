@@ -16,9 +16,9 @@ namespace ServerAccessLoggingExample
     using System;
     using System.IO;
     using System.Threading.Tasks;
-    using Microsoft.Extensions.Configuration;
     using Amazon.S3;
     using Amazon.S3.Model;
+    using Microsoft.Extensions.Configuration;
 
     public class ServerAccessLogging
     {

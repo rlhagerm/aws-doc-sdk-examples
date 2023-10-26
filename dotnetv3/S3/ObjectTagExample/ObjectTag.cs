@@ -63,7 +63,7 @@ namespace ObjectTagExample
                 PutObjectResponse response = await client.PutObjectAsync(putRequest);
 
                 // Now retrieve the new object's tags.
-                GetObjectTaggingRequest getTagsRequest = new()
+                GetObjectTaggingRequest getTagsRequest = new ()
                 {
                     BucketName = bucketName,
                     Key = keyName,
@@ -75,7 +75,7 @@ namespace ObjectTagExample
                 objectTags.Tagging
                     .ForEach(t => Console.WriteLine($"Key: {t.Key}, Value: {t.Value}"));
 
-                Tagging newTagSet = new()
+                Tagging newTagSet = new ()
                 {
                     TagSet = new List<Tag>
                     {
@@ -94,7 +94,7 @@ namespace ObjectTagExample
                 PutObjectTaggingResponse response2 = await client.PutObjectTaggingAsync(putObjTagsRequest);
 
                 // Retrieve the tags again and show the values.
-                GetObjectTaggingRequest getTagsRequest2 = new()
+                GetObjectTaggingRequest getTagsRequest2 = new ()
                 {
                     BucketName = bucketName,
                     Key = keyName,
