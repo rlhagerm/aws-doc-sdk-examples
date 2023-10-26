@@ -79,6 +79,9 @@ namespace DeleteMultipleObjectsExample
         /// <summary>
         /// This method creates several temporary objects and then deletes them.
         /// </summary>
+        /// <param name="client">The S3 client.</param>
+        /// <param name="bucketName">Name of the bucket.</param>
+        /// <returns>Async task.</returns>
         public static async Task DeleteObjectVersionsAsync(IAmazonS3 client, string bucketName)
         {
             // Upload the sample objects.

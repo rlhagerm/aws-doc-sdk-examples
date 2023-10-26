@@ -133,6 +133,7 @@ file_header_template = Copyright Amazon.com, Inc. or its affiliates. All Rights 
 dotnet_diagnostic.SA1600.severity = none
 dotnet_diagnostic.SA1615.severity = none
 dotnet_diagnostic.SA0001.severity = suggestion
+dotnet_diagnostic.SA1200.severity = suggestion
 # IDE0005 remove unused using statements.
 dotnet_diagnostic.IDE0005.severity = error
 # CS0168 do not allow unused variables.

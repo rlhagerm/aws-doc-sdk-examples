@@ -42,11 +42,18 @@ namespace ServerAccessLoggingExample
             try
             {
                 // Update bucket policy for target bucket to allow delivery of logs to it.
-                await SetBucketPolicyToAllowLogDelivery(client, bucketName, logBucketName,
-                    logObjectKeyPrefix, accountId);
+                await SetBucketPolicyToAllowLogDelivery(
+                    client,
+                    bucketName,
+                    logBucketName,
+                    logObjectKeyPrefix,
+                    accountId);
 
                 // Enable logging on the source bucket.
-                await EnableLoggingAsync(client, bucketName, logBucketName,
+                await EnableLoggingAsync(
+                    client,
+                    bucketName,
+                    logBucketName,
                     logObjectKeyPrefix);
             }
             catch (AmazonS3Exception e)
