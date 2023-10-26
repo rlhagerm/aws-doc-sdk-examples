@@ -46,7 +46,7 @@ namespace ListObjectVersionsExample
 
                 // For this example we set a small limit in MaxKeys to return
                 // a small list of versions.
-                ListVersionsRequest request = new ()
+                ListVersionsRequest request = new ListVersionsRequest()
                 {
                     BucketName = bucketName,
                     MaxKeys = 2,
