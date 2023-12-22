@@ -1,76 +1,754 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. 
 // SPDX-License-Identifier:  Apache-2.0
 
+using System.Text;
+using Amazon.AutoScaling;
+using Amazon.AutoScaling.Model;
+using Amazon.EC2;
+using Amazon.EC2.Model;
+using Amazon.IdentityManagement;
+using Amazon.IdentityManagement.Model;
+using Amazon.Runtime;
+using Amazon.Runtime.Internal.Util;
+using Amazon.SimpleSystemsManagement;
+using Amazon.SimpleSystemsManagement.Model;
+using Microsoft.Extensions.Configuration;
+
 namespace AutoScalerActions;
 
+// snippet-start:[ResilientService.dotnetv3.AutoScalerWrapper]
+/// <summary>
+/// Encapsulates Amazon EC2 Auto Scaling and EC2 management methods.
+/// </summary>
 public class AutoScalerWrapper
 {
-    public void CreateTemplate(string startupScriptPath, string instancePolicyPath)
+    private readonly IAmazonAutoScaling _amazonAutoScaling;
+    private readonly IAmazonEC2 _amazonEc2;
+    private readonly IAmazonSimpleSystemsManagement _amazonSsm;
+    private readonly IAmazonIdentityManagementService _amazonIam;
+
+    //private readonly string _prefix = "";
+    private readonly string _instanceType = "";
+    private readonly string _amiParam = "";
+    private readonly string _launchTemplateName = "";
+    private readonly string _groupName = "";
+    private readonly string _instancePolicyName = "";
+    private readonly string _instanceRoleName = "";
+    private readonly string _instanceProfileName = "";
+    private readonly string _badCredsProfileName = "";
+    private readonly string _badCredsRoleName = "";
+    private readonly string _badCredsPolicyName = "";
+    private readonly string _keyPairName = "";
+    private ILogger _logger;
+
+    public string GroupName => _groupName;
+
+    /// <summary>
+    /// Constructor for the AutoScalerWrapper.
+    /// </summary>
+    /// <param name="amazonAutoScaling">The injected AutoScaling client.</param>
+    /// <param name="amazonEc2">The injected EC2 client.</param>
+    /// <param name="amazonIam">The injected IAM client.</param>
+    /// <param name="amazonSsm">The injected SSM client.</param>
+    public AutoScalerWrapper(
+        IAmazonAutoScaling amazonAutoScaling,
+        IAmazonEC2 amazonEc2,
+        IAmazonSimpleSystemsManagement amazonSsm,
+        IAmazonIdentityManagementService amazonIam,
+        IConfiguration configuration)
     {
-        throw new NotImplementedException();
+        _amazonAutoScaling = amazonAutoScaling;
+        _amazonEc2 = amazonEc2;
+        _amazonSsm = amazonSsm;
+        _amazonIam = amazonIam;
+
+         var prefix = configuration["resourcePrefix"];
+        _instanceType = configuration["instanceType"];
+        _amiParam = configuration["amiParam"];
+
+        _launchTemplateName = prefix + "-template";
+        _groupName = prefix + "-group";
+        _instancePolicyName = prefix + "-pol";
+        _instanceRoleName = prefix + "-role";
+        _instanceProfileName = prefix + "-prof";
+        _badCredsPolicyName = prefix + "-bc-pol";
+        _badCredsRoleName = prefix + "-bc-role";
+        _badCredsProfileName = prefix + "-bc-prof";
+        _keyPairName = prefix + "-key-pair";
     }
 
-    public async Task createGroup(int i)
+    // snippet-start:[ResilientService.dotnetv3.iam.CreateInstanceProfile]
+    /// <summary>
+    /// Create a policy, role, and profile that is associated with instances.
+    /// An instance's associated profile defines a role that is assumed by the
+    /// instance.The role has attached policies that specify the AWS permissions granted to
+    /// clients that run on the instance.
+    /// </summary>
+    /// <param name="ssmOnlyPolicyFile">Path to a policy file for SSM.</param>
+    /// <param name="awsManagedPolicies">AWS Managed policies to be attached to the role.</param>
+    /// <returns>The Arn of the profile.</returns>
+    public async Task<string> CreateInstanceProfile(string ssmOnlyPolicyFile, List<string>? awsManagedPolicies = null)
     {
-        throw new NotImplementedException();
+        var assumeRoleDoc = "{"
+            +"\"Version\": \"2012-10-17\","
+            +"\"Statement\": ["
+            +"{"
+                +"\"Effect\": \"Allow\","
+                +"\"Principal\": { \"Service\": \"ec2.amazonaws.com\"},"
+                +"\"Action\": \"sts:AssumeRole\","
+            +"}"
+            +"],"
+        +"}";
+
+        var policyDocument = await File.ReadAllTextAsync(ssmOnlyPolicyFile);
+
+        var policyArn = "";
+
+        try
+        {
+            var createPolicyResult = await _amazonIam.CreatePolicyAsync(
+                new CreatePolicyRequest
+                {
+                    PolicyName = _instancePolicyName, PolicyDocument = policyDocument
+                });
+            policyArn = createPolicyResult.Policy.Arn;
+        }
+        catch (EntityAlreadyExistsException)
+        {
+            // The policy already exists, so we look it up to get the Arn.
+            var policiesPaginator = _amazonIam.Paginators.ListPolicies(
+                new ListPoliciesRequest()
+                {
+                    Scope = PolicyScopeType.Local
+                });
+            // Get the entire list using the paginator.
+            await foreach (var policy in policiesPaginator.Policies)
+            {
+                if (policy.PolicyName.Equals(_instancePolicyName))
+                {
+                    policyArn = policy.Arn;
+                }
+            }
+
+            if (policyArn == null)
+            {
+                throw new InvalidOperationException("Policy not found");
+            }
+        }
+
+        try
+        {
+            await _amazonIam.CreateRoleAsync(new CreateRoleRequest()
+            {
+                RoleName = _instanceRoleName, AssumeRolePolicyDocument = assumeRoleDoc,
+            });
+            await _amazonIam.AttachRolePolicyAsync(new AttachRolePolicyRequest()
+            {
+                RoleName = _instanceRoleName, PolicyArn = policyArn
+            });
+            if (awsManagedPolicies != null)
+            {
+                foreach (var awsPolicy in awsManagedPolicies)
+                {
+                    await _amazonIam.AttachRolePolicyAsync(new AttachRolePolicyRequest()
+                    {
+                        PolicyArn = $"arn:aws:iam::aws:policy/{awsPolicy}",
+                        RoleName = _instanceRoleName
+                    });
+                }
+            }
+        }
+        catch (EntityAlreadyExistsException)
+        {
+            Console.WriteLine("Role already exists.");
+        }
+
+        string profileArn = "";
+        try
+        {
+            var profileCreateResponse = await _amazonIam.CreateInstanceProfileAsync(
+                new CreateInstanceProfileRequest()
+                {
+                    InstanceProfileName = _instanceProfileName
+                });
+            // Allow time for the profile to be ready.
+            profileArn = profileCreateResponse.InstanceProfile.Arn;
+            Thread.Sleep(10000);
+            await _amazonIam.AddRoleToInstanceProfileAsync(
+                new AddRoleToInstanceProfileRequest()
+                {
+                    InstanceProfileName = _instanceProfileName,
+                    RoleName = _instanceRoleName
+                });
+
+        }
+        catch (EntityAlreadyExistsException)
+        {
+            Console.WriteLine("Policy already exists.");
+            var profileGetResponse = await _amazonIam.GetInstanceProfileAsync(
+                new GetInstanceProfileRequest()
+                {
+                    InstanceProfileName = _instanceProfileName
+                });
+            profileArn = profileGetResponse.InstanceProfile.Arn;
+        }
+        return profileArn;
+    }
+    // snippet-end:[ResilientService.dotnetv3.iam.CreateInstanceProfile]
+
+    // snippet-start:[ResilientService.dotnetv3.ec2.CreateKeyPair]
+    /// <summary>
+    /// Create a new key pair and save the file.
+    /// </summary>
+    /// <param name="newKeyPairName">The name of the new key pair.</param>
+    /// <returns>Async task.</returns>
+    public async Task CreateKeyPair(string newKeyPairName)
+    {
+        var keyResponse = await _amazonEc2.CreateKeyPairAsync(
+            new CreateKeyPairRequest() { KeyName = newKeyPairName });
+        await File.WriteAllTextAsync($"{newKeyPairName}.pem",
+            keyResponse.KeyPair.KeyMaterial);
+        Console.WriteLine($"Created key pair {newKeyPairName}.");
+    }
+    // snippet-end:[ResilientService.dotnetv3.ec2.CreateKeyPair]
+
+    // snippet-start:[ResilientService.dotnetv3.ec2.DeleteKeyPair]
+    /// <summary>
+    /// Delete the key pair and file.
+    /// </summary>
+    /// <param name="deleteKeyPairName">The key pair to delete.</param>
+    /// <returns>Async task.</returns>
+    public async Task DeleteKeyPair(string deleteKeyPairName)
+    {
+        try
+        {
+            await _amazonEc2.DeleteKeyPairAsync(
+                new DeleteKeyPairRequest() { KeyName = deleteKeyPairName });
+            File.Delete($"{deleteKeyPairName}.pem");
+        }
+        catch (FileNotFoundException)
+        {
+            Console.WriteLine($"Key pair {deleteKeyPairName} not found.");
+        }
+    }
+    // snippet-end:[ResilientService.dotnetv3.ec2.DeleteKeyPair]
+
+    // snippet-start:[ResilientService.dotnetv3.ec2.CreateLaunchTemplate]
+    /// <summary>
+    /// Creates an Amazon EC2 launch template to use with Amazon EC2 Auto Scaling.
+    /// The launch template specifies a Bash script in its user data field that runs after
+    /// the instance is started. This script installs the Python packages and starts a Python
+    /// web server on the instance.
+    /// </summary>
+    /// <param name="startupScriptPath">The path to a Bash script file that is run.</param>
+    /// <param name="instancePolicyPath">The path to a permissions policy to create and attach to the profile.</param>
+    /// <returns>The template object.</returns>
+    public async Task<Amazon.EC2.Model.LaunchTemplate> CreateTemplate(string startupScriptPath, string instancePolicyPath)
+    {
+        await CreateKeyPair(_keyPairName);
+        await CreateInstanceProfile(_instancePolicyName);
+
+        var startServerText = await File.ReadAllTextAsync(startupScriptPath);
+
+        var amiLatest = await _amazonSsm.GetParameterAsync(
+            new GetParameterRequest() { Name = _amiParam });
+        var amiId = amiLatest.Parameter.Value;
+        var launchTemplateResponse = await _amazonEc2.CreateLaunchTemplateAsync(
+            new CreateLaunchTemplateRequest()
+            {
+                LaunchTemplateName = _launchTemplateName,
+                LaunchTemplateData = new RequestLaunchTemplateData()
+                {
+                    InstanceType = _instanceType,
+                    ImageId = amiId,
+                    IamInstanceProfile =
+                        new
+                            LaunchTemplateIamInstanceProfileSpecificationRequest()
+                            {
+                                Name = _instanceProfileName
+                        },
+                    KeyName = _keyPairName,
+                    UserData = Encoding.UTF8.GetBytes(startServerText)
+                        .ToString()
+                }
+            });
+        return launchTemplateResponse.LaunchTemplate;
+
+    }
+    // snippet-end:[ResilientService.dotnetv3.ec2.CreateLaunchTemplate]
+
+    // snippet-start:[ResilientService.dotnetv3.Ec2.DescribeAvailabilityZones]
+    /// <summary>
+    /// Get a list of Availability Zones in the AWS Region of the Amazon EC2 Client.
+    /// </summary>
+    /// <returns>A list of availability zones.</returns>
+    public async Task<List<string>> DescribeAvailabilityZones()
+    {
+        var zoneResponse = await _amazonEc2.DescribeAvailabilityZonesAsync(
+            new DescribeAvailabilityZonesRequest());
+        return zoneResponse.AvailabilityZones.Select(z => z.ZoneName).ToList();
+    }
+    // snippet-end:[ResilientService.dotnetv3.Ec2.DescribeAvailabilityZones]
+
+    // snippet-start:[ResilientService.dotnetv3.Ec2.CreateGroup]
+    /// <summary>
+    /// Create an EC2 Auto Scaling group of a specified size and name.
+    /// </summary>
+    /// <param name="groupSize">The size for the group.</param>
+    /// <param name="groupName">The name for the group.</param>
+    /// <param name="availabilityZones">The availability zones for the group.</param>
+    /// <returns>Async task.</returns>
+    public async Task CreateGroupOfSize(int groupSize, string groupName, List<string> availabilityZones)
+    {
+        try
+        {
+            await _amazonAutoScaling.CreateAutoScalingGroupAsync(
+                new CreateAutoScalingGroupRequest()
+                {
+                    AutoScalingGroupName = groupName,
+                    AvailabilityZones = availabilityZones,
+                    LaunchTemplate =
+                        new Amazon.AutoScaling.Model.LaunchTemplateSpecification()
+                        {
+                            LaunchTemplateName = _launchTemplateName,
+                            Version = "$Default"
+                        },
+                    MaxSize = groupSize,
+                    MinSize = groupSize
+                });
+            Console.WriteLine($"Created EC2 Auto Scaling group {groupName} with size {groupSize}.");
+        }
+        catch (EntityAlreadyExistsException)
+        {
+            Console.WriteLine($"EC2 Auto Scaling group {groupName} already exists.");
+        }
+    }
+    // snippet-end:[ResilientService.dotnetv3.Ec2.CreateGroup]
+
+    // snippet-start:[ResilientService.dotnetv3.Ec2.DescribeVpcs]
+    /// <summary>
+    /// Get the default VPC for the account.
+    /// </summary>
+    /// <returns>The default VPC object.</returns>
+    public async Task<Vpc> GetDefaultVpc()
+    {
+        var vpcResponse = await _amazonEc2.DescribeVpcsAsync(
+            new DescribeVpcsRequest()
+            {
+                Filters = new List<Amazon.EC2.Model.Filter>()
+                {
+                    new ("is-default", new List<string>() { "true" })
+                }
+            });
+        return vpcResponse.Vpcs[0];
+    }
+    // snippet-end:[ResilientService.dotnetv3.Ec2.DescribeVpcs]
+
+    // snippet-start:[ResilientService.dotnetv3.Ec2.DescribeSubnets]
+    /// <summary>
+    /// Get all the subnets for a Vpc in a set of availability zones.
+    /// </summary>
+    /// <param name="vpcId">The Id of the Vpc.</param>
+    /// <param name="availabilityZones">The list of availability zones.</param>
+    /// <returns>The collection of subnet objects.</returns>
+    public async Task<List<Subnet>> GetAllVpcSubnetsForZones(string vpcId, List<string> availabilityZones)
+    {
+        var subnets = new List<Subnet>();
+        var subnetPaginator = _amazonEc2.Paginators.DescribeSubnets(
+            new DescribeSubnetsRequest()
+            {
+                Filters = new List<Amazon.EC2.Model.Filter>()
+                {
+                    new ("vpc-id", new List<string>() { vpcId}),
+                    new ("availability-zone", availabilityZones),
+                    new ("default-for-az", new List<string>() { "true" })
+                }
+            });
+
+        // Get the entire list using the paginator.
+        await foreach (var subnet in subnetPaginator.Subnets)
+        {
+            subnets.Add(subnet);
+        }
+        
+        return subnets;
+    }
+    // snippet-end:[ResilientService.dotnetv3.Ec2.DescribeSubnets]
+
+    // snippet-start:[ResilientService.dotnetv3.Ec2.DeleteLaunchTemplate]
+    /// <summary>
+    /// Delete a launch template by name.
+    /// </summary>
+    /// <param name="templateName">The name of the template to delete.</param>
+    /// <returns>Async task.</returns>
+    public async Task DeleteTemplateByName(string templateName)
+    {
+        try
+        {
+            await _amazonEc2.DeleteLaunchTemplateAsync(
+                new DeleteLaunchTemplateRequest()
+                {
+                    LaunchTemplateName = templateName
+                });
+        }
+        catch (AmazonClientException)
+        {
+            // todo: not found exception?
+        }
+    }
+    // snippet-end:[ResilientService.dotnetv3.Ec2.DeleteLaunchTemplate]
+
+    // snippet-start:[ResilientService.dotnetv3.Ec2.DeleteInstanceProfile]
+    /// <summary>
+    /// Detaches a role from an instance profile, detaches policies from the role,
+    /// and deletes all the resources.
+    /// </summary>
+    /// <param name="profileName">The name of the profile to delete.</param>
+    /// <param name="roleName">The name of the role to delete.</param>
+    /// <returns>Async task.</returns>
+    public async Task DeleteInstanceProfile(string profileName, string roleName)
+    {
+        try
+        {
+            await _amazonIam.RemoveRoleFromInstanceProfileAsync(
+                new RemoveRoleFromInstanceProfileRequest()
+                {
+                    InstanceProfileName = profileName, RoleName = roleName
+                });
+            await _amazonIam.DeleteInstanceProfileAsync(
+                new DeleteInstanceProfileRequest() { InstanceProfileName = profileName });
+            var attachedPolicies = await _amazonIam.ListAttachedRolePoliciesAsync(
+                new ListAttachedRolePoliciesRequest() { RoleName = roleName });
+            foreach (var policy in attachedPolicies.AttachedPolicies)
+            {
+                await _amazonIam.DetachRolePolicyAsync(
+                    new DetachRolePolicyRequest()
+                    {
+                        RoleName = roleName, PolicyArn = policy.PolicyArn
+                    });
+                // Delete the custom policies only.
+                if (!policy.PolicyArn.StartsWith("arn:aws:iam::aws"))
+                {
+                    await _amazonIam.DeletePolicyAsync(
+                        new Amazon.IdentityManagement.Model.DeletePolicyRequest()
+                        {
+                            PolicyArn = policy.PolicyArn
+                        });
+                }
+            }
+
+            await _amazonIam.DeleteRoleAsync(
+                new DeleteRoleRequest() { RoleName = roleName });
+        }
+        catch (NoSuchEntityException)
+        {
+            Console.WriteLine($"Instance profile {profileName} does not exist.");
+        }
+    }
+    // snippet-end:[ResilientService.dotnetv3.Ec2.DeleteInstanceProfile]
+
+    // snippet-start:[ResilientService.dotnetv3.AutoScaling.DescribeAutoScalingGroups]
+    /// <summary>
+    /// Gets data about the instances in an EC2 Auto Scaling group by its group name.
+    /// </summary>
+    /// <param name="group">The name of the auto scaling group.</param>
+    /// <returns>A collection of instance Ids.</returns>
+    public async Task<IEnumerable<string>> GetInstancesByGroupName(string group)
+    {
+        var instanceResponse = await _amazonAutoScaling.DescribeAutoScalingGroupsAsync(
+            new DescribeAutoScalingGroupsRequest()
+            {
+                AutoScalingGroupNames = new List<string>() { group }
+            });
+        var instanceIds = instanceResponse.AutoScalingGroups.SelectMany(
+            g => g.Instances.Select(i => i.InstanceId));
+        return instanceIds;
+    }
+    // snippet-end:[ResilientService.dotnetv3.AutoScaling.DescribeAutoScalingGroups]
+
+    // snippet-start:[ResilientService.dotnetv3.Ec2.GetInstanceProfile]
+    /// <summary>
+    /// Get the instance profile association data for an instance.
+    /// </summary>
+    /// <param name="instanceId">The Id of the instance.</param>
+    /// <returns>Instance profile associations data.</returns>
+    public async Task<IamInstanceProfileAssociation> GetInstanceProfile(string instanceId)
+    {
+        var response = await _amazonEc2.DescribeIamInstanceProfileAssociationsAsync(
+            new DescribeIamInstanceProfileAssociationsRequest()
+            {
+                Filters = new List<Amazon.EC2.Model.Filter>()
+                {
+                    new ("instance-id", new List<string>() { instanceId })
+                },
+            });
+        return response.IamInstanceProfileAssociations[0];
+    }
+    // snippet-end:[ResilientService.dotnetv3.Ec2.GetInstanceProfile]
+
+    // snippet-start:[ResilientService.dotnetv3.Ec2.ReplaceInstanceProfile]
+    public async Task ReplaceInstanceProfile(string instanceId, string credsProfileName, string associationId)
+    {
+        await _amazonEc2.ReplaceIamInstanceProfileAssociationAsync(
+                new ReplaceIamInstanceProfileAssociationRequest()
+                {
+                    AssociationId = associationId,
+                    IamInstanceProfile = new IamInstanceProfileSpecification()
+                    {
+                        Name = credsProfileName
+                    }
+                });
+            // Allow time before resetting.
+            Thread.Sleep(25000);
+            var instanceReady = false;
+            var retries = 5;
+            while (retries-- > 0 && !instanceReady)
+            {
+                await _amazonEc2.RebootInstancesAsync(
+                    new RebootInstancesRequest(new List<string>() { instanceId }));
+                Thread.Sleep(10000);
+
+                var instancesPaginator = _amazonSsm.Paginators.DescribeInstanceInformation(
+                    new DescribeInstanceInformationRequest());
+                // Get the entire list using the paginator.
+                await foreach (var instance in instancesPaginator.InstanceInformationList)
+                {
+                    instanceReady = instance.InstanceId == instanceId;
+                    if (instanceReady)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            await _amazonSsm.SendCommandAsync(
+                new SendCommandRequest()
+                {
+                    InstanceIds = new List<string>() { instanceId },
+                    DocumentName = "AWS-RunShellScript",
+                    Parameters = new Dictionary<string, List<string>>()
+                    {
+                        {"commands", new List<string>() { "cd / && sudo python3 server.py 80" }}
+                    }
+                });
+        Console.WriteLine($"Restarted the web server on instance {instanceId}");
+    }
+    // snippet-end:[ResilientService.dotnetv3.Ec2.ReplaceInstanceProfile]
+
+    // snippet-start:[ResilientService.dotnetv3.AutoScaling.DeleteAutoScalingGroup]
+    /// <summary>
+    /// Try to terminate an instance by its Id.
+    /// </summary>
+    /// <param name="instanceId">The Id of the instance to terminate.</param>
+    /// <returns>Async task.</returns>
+    public async Task TryTerminateInstanceById(string instanceId)
+    {
+        var stopping = false;
+        Console.WriteLine($"Stopping {instanceId}...");
+        while (!stopping)
+        {
+            try
+            {
+                await _amazonAutoScaling.TerminateInstanceInAutoScalingGroupAsync(
+                    new TerminateInstanceInAutoScalingGroupRequest()
+                    {
+                        InstanceId = instanceId, ShouldDecrementDesiredCapacity = true
+                    });
+                stopping = true;
+            }
+            catch (ScalingActivityInProgressException)
+            {
+                Console.WriteLine($"Scaling activity in progress for {instanceId}. Waiting...");
+                Thread.Sleep(10000);
+            }
+        }
     }
 
-    public object GetDefaultVpc()
+    /// <summary>
+    /// Tries to delete the EC2 Auto Scaling group. If the group is in use or in progress,
+    /// waits and retries until the group is successfully deleted.
+    /// </summary>
+    /// <param name="groupName">The name of the group to try to delete.</param>
+    /// <returns>Async task.</returns>
+    public async Task TryDeleteGroupByName(string groupName)
     {
-        throw new NotImplementedException();
+        var stopped = false;
+        while (!stopped)
+        {
+            try
+            {
+                await _amazonAutoScaling.DeleteAutoScalingGroupAsync(
+                    new DeleteAutoScalingGroupRequest()
+                    {
+                        AutoScalingGroupName = groupName
+                    });
+                stopped = true;
+            }
+            catch (Exception e)
+                when ((e is ScalingActivityInProgressException)
+                      || (e is Amazon.AutoScaling.Model.ResourceInUseException))
+            {
+                Console.WriteLine($"Some instances are still running. Waiting...");
+                Thread.Sleep(10000);
+            }
+        }
     }
 
-    public object GetSubnets(object defaultVpc)
+    /// <summary>
+    /// Terminate instances and delete the Auto Scaling group by name.
+    /// </summary>
+    /// <param name="groupName">The name of the group to delete.</param>
+    /// <returns>Async task.</returns>
+    public async Task TerminateAndDeleteAutoScalingGroupByName(string groupName)
     {
-        throw new NotImplementedException();
+        var describeGroupsResponse = await _amazonAutoScaling.DescribeAutoScalingGroupsAsync(
+            new DescribeAutoScalingGroupsRequest()
+            {
+                AutoScalingGroupNames = new List<string>() { groupName }
+            });
+        if (describeGroupsResponse.AutoScalingGroups.Any())
+        {
+            // Update the size to 0.
+            await _amazonAutoScaling.UpdateAutoScalingGroupAsync(
+                new UpdateAutoScalingGroupRequest()
+                {
+                    AutoScalingGroupName = groupName,
+                    MinSize = 0
+                });
+            var group = describeGroupsResponse.AutoScalingGroups[0];
+            foreach (var instance in group.Instances)
+            {
+                await TryTerminateInstanceById(instance.InstanceId);
+            }
+
+            await TryDeleteGroupByName(groupName);
+        }
+        else
+        {
+            Console.WriteLine($"No groups found with name {groupName}.");
+        }
     }
 
-    public void DeleteGroup()
+    // snippet-end:[ResilientService.dotnetv3.AutoScaling.DeleteAutoScalingGroup]
+
+    // snippet-start:[ResilientService.dotnetv3.Ec2.DescribeSecurityGroups]
+    /// <summary>
+    /// Get the default security group for a specified Vpc.
+    /// </summary>
+    /// <param name="vpc">The Vpc to search.</param>
+    /// <returns>The default security group.</returns>
+    public async Task<SecurityGroup> GetDefaultSecurityGroupForVpc(Vpc vpc)
     {
-        throw new NotImplementedException();
+        var groupResponse = await _amazonEc2.DescribeSecurityGroupsAsync(
+            new DescribeSecurityGroupsRequest()
+            {
+                Filters = new List<Amazon.EC2.Model.Filter>()
+                {
+                    new ("group-name", new List<string>() { "default" }),
+                    new ("vpc-id", new List<string>() { vpc.VpcId })
+                }
+            });
+        return groupResponse.SecurityGroups[0];
     }
 
-    public void DeleteKeyPair()
+    /// <summary>
+    /// Verify the default security group of a Vpc allows ingress from the calling computer.
+    /// This can be done by allowing ingress from this computer's IP address.
+    /// In some situations, such as connecting from a corporate network, you must instead specify
+    /// a prefix list Id. You can also temporarily open the port to any IP address while running this example.
+    /// If you do, be sure to remove public access when you're done.
+    /// </summary>
+    /// <param name="vpc">The group to check.</param>
+    /// <param name="port">The port to verify.</param>
+    /// <param name="ipAddress">This computer's IP address.</param>
+    /// <returns>True if the ip address is allowed on the group.</returns>
+    public async Task<bool> VerifyInboundPortForGroup(SecurityGroup group, int port, string ipAddress)
     {
-        throw new NotImplementedException();
-    }
+        var portIsOpen = false;
+        foreach (var ipPermission in group.IpPermissions)
+        {
+            if (ipPermission.FromPort == port)
+            {
+                foreach (var ipRange in ipPermission.Ipv4Ranges)
+                {
+                    var cidr = ipRange.CidrIp;
+                    if (cidr.StartsWith(ipAddress) || cidr == "0.0.0.0/0")
+                    {
+                        portIsOpen = true;
+                    }
+                }
 
-    public void DeleteTemplate()
+                if (ipPermission.PrefixListIds.Any())
+                {
+                    portIsOpen = true;
+                }
+
+                if (!portIsOpen)
+                {
+                    Console.WriteLine("The inbound rule does not appear to be open to either this computer's IP\n" +
+                                      "address, to all IP addresses (0.0.0.0/0), or to a prefix list ID.");
+                }
+                else
+                {
+                    break;
+                }
+            }
+        }
+
+        return portIsOpen;
+    }
+    // snippet-end:[ResilientService.dotnetv3.Ec2.DescribeSecurityGroups]
+
+    // snippet-start:[ResilientService.dotnetv3.Ec2.AuthorizeSecurityGroupIngress]
+    /// <summary>
+    /// Add an ingress rule to the specified security group that allows access on the
+    /// specified port from the specified IP address.
+    /// </summary>
+    /// <param name="groupId">The Id of the security group to modify.</param>
+    /// <param name="port">The port to open.</param>
+    /// <param name="ipAddress">The IP address to allow access.</param>
+    /// <returns>Async task.</returns>
+    public async Task OpenInboundPort(string groupId, int port, string ipAddress)
     {
-        throw new NotImplementedException();
+        await _amazonEc2.AuthorizeSecurityGroupIngressAsync(
+            new AuthorizeSecurityGroupIngressRequest()
+            {
+                GroupId = groupId,
+                IpPermissions = new List<IpPermission>()
+                {
+                    new IpPermission()
+                    {
+                        FromPort = port,
+                        ToPort = port,
+                        IpProtocol = "tcp",
+                        Ipv4Ranges = new List<IpRange>()
+                        {
+                            new IpRange() { CidrIp = $"{ipAddress}/32" }
+                        }
+                    }
+                }
+            });
     }
+    // snippet-end:[ResilientService.dotnetv3.Ec2.AuthorizeSecurityGroupIngress]
 
-    public void DeleteInstanceProfile(object badCredsProfileName, object badCredsRoleName)
+    // snippet-start:[ResilientService.dotnetv3.Ec2.AttachLoadBalancer]
+    /// <summary>
+    /// Attaches an Elastic Load Balancing (ELB) target group to this EC2 Auto Scaling group.
+    /// The 
+    /// </summary>
+    /// <param name="autoScalingGroupName"></param>
+    /// <param name="targetGroup"></param>
+    /// <returns></returns>
+    public async Task AttachLoadBalancerToGroup(string autoScalingGroupName, TargetGroup targetGroup)
     {
-        throw new NotImplementedException();
+        await _amazonAutoScaling.AttachLoadBalancerTargetGroupsAsync(
+            new AttachLoadBalancerTargetGroupsRequest()
+            {
+                AutoScalingGroupName = autoScalingGroupName,
+                TargetGroupARNs = new List<string>() { targetGroup.Arn }
+            });
     }
-
-    public object BadCredsProfileName { get; set; }
-    public object BadCredsRoleName { get; set; }
-    public object BadCredsPolicyName { get; set; }
-
-    public void CreateInstanceProfile(string ssmOnlyPolicy, object badCredsPolicyName, object badCredsRoleName, object badCredsProfileName, List<string> list)
-    {
-        throw new NotImplementedException();
-    }
-
-    public object[] GetInstances()
-    {
-        throw new NotImplementedException();
-    }
-
-    public object GetInstanceProfile(object badInstanceId)
-    {
-        throw new NotImplementedException();
-    }
-
-    public void ReplaceInstanceProfile(object badInstanceId, object badCredsProfileName, object o)
-    {
-        throw new NotImplementedException();
-    }
-
-    public void TerminateInstance(object badInstanceId)
-    {
-        throw new NotImplementedException();
-    }
+    // snippet-end:[ResilientService.dotnetv3.Ec2.AttachLoadBalancer]
 }
+
+// snippet-end:[ResilientService.dotnetv3.AutoScalerWrapper]

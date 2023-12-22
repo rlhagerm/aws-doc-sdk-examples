@@ -13,6 +13,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RecommendationService", "Re
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ResilientService", "ResilientServiceWorkflow\ResilientService.csproj", "{4B89ED5B-71C0-466B-9FB4-B659663D74E4}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ResilientServiceTests", "Tests\ResilientServiceTests.csproj", "{494927D7-4CE5-487F-A673-43504C864F24}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{4B89ED5B-71C0-466B-9FB4-B659663D74E4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4B89ED5B-71C0-466B-9FB4-B659663D74E4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4B89ED5B-71C0-466B-9FB4-B659663D74E4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{494927D7-4CE5-487F-A673-43504C864F24}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{494927D7-4CE5-487F-A673-43504C864F24}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{494927D7-4CE5-487F-A673-43504C864F24}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{494927D7-4CE5-487F-A673-43504C864F24}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
