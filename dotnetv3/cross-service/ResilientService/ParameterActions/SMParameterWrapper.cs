@@ -20,6 +20,11 @@ public class SmParameterWrapper
     private readonly string _healthCheckParameter = "doc-example-resilient-architecture-health-check";
     private readonly string _tableName;
 
+    public string TableName => _tableName;
+    public string TableParameter => _tableParameter;
+    public string HealthCheckParameter => _healthCheckParameter;
+    public string FailureResponseParameter => _failureResponseParameter;
+
     /// <summary>
     /// Constructor for the SMParameterWrapper.
     /// </summary>

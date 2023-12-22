@@ -27,7 +27,6 @@ public class AutoScalerWrapper
     private readonly IAmazonSimpleSystemsManagement _amazonSsm;
     private readonly IAmazonIdentityManagementService _amazonIam;
 
-    //private readonly string _prefix = "";
     private readonly string _instanceType = "";
     private readonly string _amiParam = "";
     private readonly string _launchTemplateName = "";
@@ -42,6 +41,11 @@ public class AutoScalerWrapper
     private ILogger _logger;
 
     public string GroupName => _groupName;
+    public string KeyPairName => _keyPairName;
+    public string LaunchTemplateName => _launchTemplateName;
+    public string BadCredsProfileName => _badCredsProfileName;
+    public string BadCredsRoleName => _badCredsRoleName;
+    public string BadCredsPolicyName => _badCredsPolicyName;
 
     /// <summary>
     /// Constructor for the AutoScalerWrapper.
@@ -214,11 +218,11 @@ public class AutoScalerWrapper
 
     // snippet-start:[ResilientService.dotnetv3.ec2.DeleteKeyPair]
     /// <summary>
-    /// Delete the key pair and file.
+    /// Delete the key pair and file by name.
     /// </summary>
     /// <param name="deleteKeyPairName">The key pair to delete.</param>
     /// <returns>Async task.</returns>
-    public async Task DeleteKeyPair(string deleteKeyPairName)
+    public async Task DeleteKeyPairByName(string deleteKeyPairName)
     {
         try
         {
@@ -662,7 +666,7 @@ public class AutoScalerWrapper
     /// <param name="port">The port to verify.</param>
     /// <param name="ipAddress">This computer's IP address.</param>
     /// <returns>True if the ip address is allowed on the group.</returns>
-    public async Task<bool> VerifyInboundPortForGroup(SecurityGroup group, int port, string ipAddress)
+    public bool VerifyInboundPortForGroup(SecurityGroup group, int port, string ipAddress)
     {
         var portIsOpen = false;
         foreach (var ipPermission in group.IpPermissions)
@@ -736,16 +740,16 @@ public class AutoScalerWrapper
     /// Attaches an Elastic Load Balancing (ELB) target group to this EC2 Auto Scaling group.
     /// The 
     /// </summary>
-    /// <param name="autoScalingGroupName"></param>
-    /// <param name="targetGroup"></param>
-    /// <returns></returns>
-    public async Task AttachLoadBalancerToGroup(string autoScalingGroupName, TargetGroup targetGroup)
+    /// <param name="autoScalingGroupName">The name of the Auto Scaling group.</param>
+    /// <param name="targetGroupArn">The Arn for the target group.</param>
+    /// <returns>Async task.</returns>
+    public async Task AttachLoadBalancerToGroup(string autoScalingGroupName, string targetGroupArn)
     {
         await _amazonAutoScaling.AttachLoadBalancerTargetGroupsAsync(
             new AttachLoadBalancerTargetGroupsRequest()
             {
                 AutoScalingGroupName = autoScalingGroupName,
-                TargetGroupARNs = new List<string>() { targetGroup.Arn }
+                TargetGroupARNs = new List<string>() { targetGroupArn }
             });
     }
     // snippet-end:[ResilientService.dotnetv3.Ec2.AttachLoadBalancer]

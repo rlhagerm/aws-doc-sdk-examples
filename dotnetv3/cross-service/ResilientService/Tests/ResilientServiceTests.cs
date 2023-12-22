@@ -51,7 +51,9 @@ public class ResilientServiceTests
         _instanceType = _configuration["instanceType"];
         _amiParam = _configuration["amiParam"];
 
-        _elasticLoadBalancerWrapper = new ElasticLoadBalancerWrapper(new AmazonElasticLoadBalancingV2Client());
+        _elasticLoadBalancerWrapper = new ElasticLoadBalancerWrapper(
+            new AmazonElasticLoadBalancingV2Client(),
+            _configuration);
         _autoScalerWrapper = new AutoScalerWrapper(
             new AmazonAutoScalingClient(),
             new AmazonEC2Client(),

@@ -5,7 +5,6 @@ using Amazon.AutoScaling;
 using Amazon.DynamoDBv2;
 using Amazon.ElasticLoadBalancingV2;
 using Amazon.IdentityManagement;
-using Amazon.IdentityManagement.Model;
 using Amazon.SimpleSystemsManagement;
 using AutoScalerActions;
 using ElasticLoadBalancerActions;
@@ -31,6 +30,8 @@ public static class ResilientServiceWorkflow
     public static Recommendations _recommendations = null!;
     public static SmParameterWrapper _smParameterWrapper = null!;
     public static IConfiguration _configuration = null!;
+    private static HttpClient _httpClient = null!;
+
     static async Task Main(string[] args)
     {
         _configuration = new ConfigurationBuilder()
@@ -104,6 +105,7 @@ public static class ResilientServiceWorkflow
         _recommendations = host.Services.GetRequiredService<Recommendations>();
         _autoScalerWrapper = host.Services.GetRequiredService<AutoScalerWrapper>();
         _smParameterWrapper = host.Services.GetRequiredService<SmParameterWrapper>();
+        _httpClient = new HttpClient();
     }
 
     /// <summary>
@@ -193,19 +195,21 @@ public static class ResilientServiceWorkflow
         var targetGroup = await _elasticLoadBalancerWrapper.CreateTargetGroupOnVpc(_autoScalerWrapper.GroupName, protocol, port, defaultVpc.VpcId);
 
         await _elasticLoadBalancerWrapper.CreateLoadBalancerAndListener(_elasticLoadBalancerWrapper.LoadBalancerName, subnetIds, targetGroup);
-        await _autoScalerWrapper.AttachLoadBalancerToGroup(targetGroup);
+        await _autoScalerWrapper.AttachLoadBalancerToGroup(_autoScalerWrapper.GroupName, targetGroup.TargetGroupArn);
         Console.WriteLine("Verifying access to the load balancer endpoint...");
-        var loadBalancerAccess = await _elasticLoadBalancerWrapper.VerifyLoadBalancerEndpoint();
+        var endPoint = await _elasticLoadBalancerWrapper.GetEndpointForLoadBalancerByName(_elasticLoadBalancerWrapper.LoadBalancerName);
+        var loadBalancerAccess = await _elasticLoadBalancerWrapper.VerifyLoadBalancerEndpoint(endPoint);
 
         if (!loadBalancerAccess)
         {
             Console.WriteLine("Couldn't connect to the load balancer, verifying that the port is open...");
-            var httpClient = new HttpClient();
-            var ipString = await httpClient.GetStringAsync("https://checkip.amazonaws.com");
+            
+            var ipString = await _httpClient.GetStringAsync("https://checkip.amazonaws.com");
             ipString = ipString.Trim();
 
-            var portIsOpen = await _autoScalerWrapper.VerifyInboundPort(defaultVpc, port, ipString);
-            var sshPortIsOpen = await _autoScalerWrapper.VerifyInboundPort(defaultVpc, sshPort, ipString);
+            var defaultSecurityGroup = await _autoScalerWrapper.GetDefaultSecurityGroupForVpc(defaultVpc);
+            var portIsOpen = _autoScalerWrapper.VerifyInboundPortForGroup(defaultSecurityGroup, port, ipString);
+            var sshPortIsOpen = _autoScalerWrapper.VerifyInboundPortForGroup(defaultSecurityGroup, sshPort, ipString);
 
             if (!portIsOpen)
             {
@@ -217,7 +221,7 @@ public static class ResilientServiceWorkflow
                 if (GetYesNoResponse(
                         "Do you want to add a rule to the security group to allow inbound traffic from your computer's IP address?"))
                 {
-                    await _autoScalerWrapper.OpenInboundPort(securityGroupId, port, ipString);
+                    await _autoScalerWrapper.OpenInboundPort(defaultSecurityGroup.GroupId, port, ipString);
                 }
             }
 
@@ -226,23 +230,23 @@ public static class ResilientServiceWorkflow
                 if (GetYesNoResponse(
                         "Do you want to add a rule to the security group to allow inbound SSH traffic for debugging from your computer's IP address?"))
                 {
-                    await _autoScalerWrapper.OpenInboundPort(securityGroupId, sshPort, ipString);
+                    await _autoScalerWrapper.OpenInboundPort(defaultSecurityGroup.GroupId, sshPort, ipString);
                 }
             }
-            loadBalancerAccess = _elasticLoadBalancerWrapper.VerifyLoadBalancerEndpoint();
+            loadBalancerAccess = await _elasticLoadBalancerWrapper.VerifyLoadBalancerEndpoint(endPoint);
         }
 
         if (loadBalancerAccess)
         {
             Console.WriteLine("Your load balancer is ready. You can access it by browsing to:");
-            Console.WriteLine($"\thttp://{_elasticLoadBalancerWrapper.GetEndpoint()}\n");
+            Console.WriteLine($"\thttp://{endPoint}\n");
         }
         else {
             Console.WriteLine(
                 "Couldn't get a successful response from the load balancer endpoint. Troubleshoot by\n"
                 + "manually verifying that your VPC and security group are configured correctly and that\n"
                 + "you can successfully make a GET request to the load balancer endpoint:\n");
-            Console.WriteLine($"\thttp://{_elasticLoadBalancerWrapper.GetEndpoint()}\n");
+            Console.WriteLine($"\thttp://{endPoint}\n");
         }
         Console.WriteLine(new string('-', 80));
         Console.WriteLine("Press Enter when you're ready to continue with the demo.");
@@ -270,9 +274,9 @@ public static class ResilientServiceWorkflow
         await DemoActionChoices();
 
         Console.WriteLine($"The web service running on the EC2 instances gets recommendations by querying a DynamoDB table.\n" +
-                          $"The table name is contained in a Systems Manager parameter named '{_smParameterWrapper.Table}'.\n" +
+                          $"The table name is contained in a Systems Manager parameter named '{_smParameterWrapper.TableParameter}'.\n" +
                           $"To simulate a failure of the recommendation service, let's set this parameter to name a non-existent table.\n");
-        await _smParameterWrapper.PutParameter(_smParameterWrapper.Table, "this-is-not-a-table");
+        await _smParameterWrapper.PutParameterByName(_smParameterWrapper.TableParameter, "this-is-not-a-table");
         Console.WriteLine("\nNow, sending a GET request to the load balancer endpoint returns a failure code. But, the service reports as\n" +
                           "healthy to the load balancer because shallow health checks don't check for failure of the recommendation service.");
         await DemoActionChoices();
@@ -280,36 +284,33 @@ public static class ResilientServiceWorkflow
         Console.WriteLine("Instead of failing when the recommendation service fails, the web service can return a static response.");
         Console.WriteLine("While this is not a perfect solution, it presents the customer with a somewhat better experience than failure.");
 
-        await _smParameterWrapper.PutParameter(_smParameterWrapper.FailureResponse, "static");
+        await _smParameterWrapper.PutParameterByName(_smParameterWrapper.FailureResponseParameter, "static");
 
         Console.WriteLine("\nNow, sending a GET request to the load balancer endpoint returns a static response.");
         Console.WriteLine("The service still reports as healthy because health checks are still shallow.");
         await DemoActionChoices();
 
         Console.WriteLine("Let's reinstate the recommendation service.\n");
-        await _smParameterWrapper.PutParameter(_smParameterWrapper.Table, _recommendations.TableName);
+        await _smParameterWrapper.PutParameterByName(_smParameterWrapper.TableParameter, _smParameterWrapper.TableName);
         Console.WriteLine(
             "\nLet's also substitute bad credentials for one of the instances in the target group so that it can't\n" +
             "access the DynamoDB recommendation table.\n"
         );
         await _autoScalerWrapper.CreateInstanceProfile(
             ssmOnlyPolicy,
-            _autoScalerWrapper.BadCredsPolicyName,
-            _autoScalerWrapper.BadCredsRoleName,
-            _autoScalerWrapper.BadCredsProfileName,
             new List<string> { "AmazonSSMManagedInstanceCore" }
         );
-        var instances = _autoScalerWrapper.GetInstances();
-        var bad_instance_id = instances[0];
-        var instance_profile = _autoScalerWrapper.GetInstanceProfile(bad_instance_id);
+        var instances = await _autoScalerWrapper.GetInstancesByGroupName(_autoScalerWrapper.GroupName);
+        var badInstanceId = instances.First();
+        var instanceProfile = await _autoScalerWrapper.GetInstanceProfile(badInstanceId);
         Console.WriteLine(
-            $"Replacing the profile for instance {bad_instance_id} with a profile that contains\n" +
+            $"Replacing the profile for instance {badInstanceId} with a profile that contains\n" +
             "bad credentials...\n"
         );
         await _autoScalerWrapper.ReplaceInstanceProfile(
-            bad_instance_id,
+            badInstanceId,
             _autoScalerWrapper.BadCredsProfileName,
-            instance_profile["AssociationId"]
+            instanceProfile.AssociationId
         );
         Console.WriteLine(
             "Now, sending a GET request to the load balancer endpoint returns either a recommendation or a static response,\n" +
@@ -326,9 +327,9 @@ public static class ResilientServiceWorkflow
         Console.WriteLine("\nBy implementing deep health checks, the load balancer can detect when one of the instances is failing");
         Console.WriteLine("and take that instance out of rotation.");
 
-        await _smParameterWrapper.PutParameter(_smParameterWrapper.HealthCheck, "deep");
+        await _smParameterWrapper.PutParameterByName(_smParameterWrapper.HealthCheckParameter, "deep");
 
-        Console.WriteLine($"\nNow, checking target health indicates that the instance with bad credentials ({bad_instance_id})");
+        Console.WriteLine($"\nNow, checking target health indicates that the instance with bad credentials ({badInstanceId})");
         Console.WriteLine("is unhealthy. Note that it might take a minute or two for the load balancer to detect the unhealthy");
         Console.WriteLine("instance. Sending a GET request to the load balancer endpoint always returns a recommendation, because");
         Console.WriteLine("the load balancer takes unhealthy instances out of its rotation.");
@@ -338,7 +339,7 @@ public static class ResilientServiceWorkflow
         Console.WriteLine("\nBecause the instances in this demo are controlled by an auto scaler, the simplest way to fix an unhealthy");
         Console.WriteLine("instance is to terminate it and let the auto scaler start a new instance to replace it.");
 
-        await _autoScalerWrapper.TerminateInstance(BadInstanceId);
+        await _autoScalerWrapper.TryTerminateInstanceById(badInstanceId);
 
         Console.WriteLine($"\nEven while the instance is terminating and the new instance is starting, sending a GET");
         Console.WriteLine("request to the web service continues to get a successful recommendation response because");
@@ -350,7 +351,7 @@ public static class ResilientServiceWorkflow
 
         Console.WriteLine("\nIf the recommendation service fails now, deep health checks mean all instances report as unhealthy.");
 
-        await _smParameterWrapper.PutParameter(_smParameterWrapper.Table, "this-is-not-a-table");
+        await _smParameterWrapper.PutParameterByName(_smParameterWrapper.TableName, "this-is-not-a-table");
 
         Console.WriteLine($"\nWhen all instances are unhealthy, the load balancer continues to route requests even to");
         Console.WriteLine("unhealthy instances, allowing them to fail open and return a static response rather than fail");
@@ -378,11 +379,11 @@ public static class ResilientServiceWorkflow
 
         if (GetYesNoResponse("Do you want to clean up all demo resources? (y/n) "))
         {
-            await _elasticLoadBalancerWrapper.DeleteLoadBalancer();
-            await _elasticLoadBalancerWrapper.DeleteTargetGroup();
-            await _autoScalerWrapper.DeleteGroup();
-            await _autoScalerWrapper.DeleteKeyPair();
-            await _autoScalerWrapper.DeleteTemplate();
+            await _elasticLoadBalancerWrapper.DeleteLoadBalancerByName(_elasticLoadBalancerWrapper.LoadBalancerName);
+            await _elasticLoadBalancerWrapper.DeleteTargetGroupByName(_elasticLoadBalancerWrapper.TargetGroupName);
+            await _autoScalerWrapper.TryDeleteGroupByName(_autoScalerWrapper.GroupName);
+            await _autoScalerWrapper.DeleteKeyPairByName(_autoScalerWrapper.KeyPairName);
+            await _autoScalerWrapper.DeleteTemplateByName(_autoScalerWrapper.LaunchTemplateName);
             await _autoScalerWrapper.DeleteInstanceProfile(
                 _autoScalerWrapper.BadCredsProfileName,
                 _autoScalerWrapper.BadCredsRoleName
@@ -426,14 +427,17 @@ public static class ResilientServiceWorkflow
                 case 0:
                     {
                         Console.WriteLine("GET request response.");
-                        var response = await _elasticLoadBalancerWrapper.GetEndPointResponse();
+                        var endpoint = await
+                            _elasticLoadBalancerWrapper.GetEndpointForLoadBalancerByName(
+                                _elasticLoadBalancerWrapper.LoadBalancerName);
+                        var response = await _elasticLoadBalancerWrapper.GetEndPointResponse(endpoint);
                         Console.WriteLine(response);
                         break;
                     }
                 case 1:
                     {
                         Console.WriteLine("Checking the health of load balancer targets.");
-                        var health = await _elasticLoadBalancerWrapper.CheckTargetHealth();
+                        var health = await _elasticLoadBalancerWrapper.CheckTargetHealthForGroup(_elasticLoadBalancerWrapper.TargetGroupName);
                         // Print the state of the targets.
                         foreach (var target in health)
                         {
