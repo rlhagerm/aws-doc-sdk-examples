@@ -38,6 +38,7 @@
 	  <ProjectReference Include="..\ElasticLoadBalancerActions\ElasticLoadBalancerActions.csproj" />
 	  <ProjectReference Include="..\ParameterActions\ParameterActions.csproj" />
 	  <ProjectReference Include="..\RecommendationService\RecommendationService.csproj" />
+	  <ProjectReference Include="..\ResilientServiceWorkflow\ResilientService.csproj" />
 	</ItemGroup>
 
 </Project>
