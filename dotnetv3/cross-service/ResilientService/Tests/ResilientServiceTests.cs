@@ -2,6 +2,7 @@
 // SPDX-License-Identifier:  Apache-2.0
 
 using Amazon.AutoScaling;
+using Amazon.DynamoDBv2;
 using Amazon.EC2;
 using Amazon.ElasticLoadBalancingV2;
 using Amazon.IdentityManagement;
@@ -11,6 +12,7 @@ using ElasticLoadBalancerActions;
 using Microsoft.Extensions.Configuration;
 using ParameterActions;
 using RecommendationService;
+using ResilientService;
 using Xunit.Extensions.Ordering;
 
 namespace ResilientServiceTests;
@@ -27,11 +29,7 @@ public class ResilientServiceTests
     private readonly Recommendations _recommendations = null!;
     private readonly SmParameterWrapper _smParameterWrapper = null!;
 
-    private readonly string _resourcePath;
     private readonly string _databaseName;
-    private readonly string _resourcePrefix;
-    private readonly string _instanceType;
-    private readonly string _amiParam;
 
     /// <summary>
     /// Constructor for the test class.
@@ -45,11 +43,7 @@ public class ResilientServiceTests
                 true) // Optionally, load local settings.
             .Build();
 
-        _resourcePath = _configuration["resourcePath"];
-        _databaseName = _configuration["databaseName"];
-        _resourcePrefix = _configuration["resourcePrefix"];
-        _instanceType = _configuration["instanceType"];
-        _amiParam = _configuration["amiParam"];
+        _databaseName = _configuration["databaseName"]!;
 
         _elasticLoadBalancerWrapper = new ElasticLoadBalancerWrapper(
             new AmazonElasticLoadBalancingV2Client(),
@@ -60,35 +54,63 @@ public class ResilientServiceTests
             new AmazonSimpleSystemsManagementClient(),
             new AmazonIdentityManagementServiceClient(),
             _configuration);
-        _recommendations = new Recommendations();
+        _recommendations = new Recommendations(new AmazonDynamoDBClient(), _databaseName);
         _smParameterWrapper =
             new SmParameterWrapper(new AmazonSimpleSystemsManagementClient(),
                 _databaseName);
 
+        ResilientServiceWorkflow._autoScalerWrapper = _autoScalerWrapper;
+        ResilientServiceWorkflow._elasticLoadBalancerWrapper =
+            _elasticLoadBalancerWrapper;
+        ResilientServiceWorkflow._recommendations = _recommendations;
+        ResilientServiceWorkflow._smParameterWrapper = _smParameterWrapper;
+        ResilientServiceWorkflow._configuration = _configuration;
     }
 
-
+    /// <summary>
+    /// Run the deploy step of the workflow. Should return successful.
+    /// </summary>
+    /// <returns>Async task.</returns>
     [Fact]
     [Order(1)]
     [Trait("Category", "Integration")]
-    public void TestDemo()
+    public async Task TestDeploy()
     {
+        // Act.
+        var success = await ResilientServiceWorkflow.Deploy(false);
 
+        // Assert.
+        Assert.True(success);
     }
 
+    /// <summary>
+    /// Run the demo step of the workflow. Should return successful.
+    /// </summary>
+    /// <returns></returns>
     [Fact]
     [Order(2)]
     [Trait("Category", "Integration")]
-    public void TestDeploy()
+    public async Task TestDemo()
     {
+        // Act.
+        var success = await ResilientServiceWorkflow.Demo(false);
 
+        // Assert.
+        Assert.True(success);
     }
 
+    /// <summary>
+    /// Run the destroy step of the workflow. Should return successful.
+    /// </summary>
+    /// <returns></returns>
     [Fact]
     [Order(3)]
     [Trait("Category", "Integration")]
-    public void TestDestroy()
+    public async Task TestDestroy()
     {
-
+        // Act.
+        var success = await ResilientServiceWorkflow.DestroyResources(false);
+        // Assert.
+        Assert.True(success);
     }
 }

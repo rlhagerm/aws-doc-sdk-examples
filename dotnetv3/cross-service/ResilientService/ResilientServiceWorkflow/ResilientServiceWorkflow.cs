@@ -32,6 +32,7 @@ public static class ResilientServiceWorkflow
     public static IConfiguration _configuration = null!;
     private static HttpClient _httpClient = null!;
 
+    // snippet-start:[ResilientService.dotnetv3.Scenario]
     static async Task Main(string[] args)
     {
         _configuration = new ConfigurationBuilder()
@@ -69,11 +70,11 @@ public static class ResilientServiceWorkflow
             Console.WriteLine(new string('-', 80));
             Console.WriteLine("Welcome to the Resilient Architecture Example Scenario.");
             Console.WriteLine(new string('-', 80));
-            await Deploy();
+            await Deploy(true);
 
             Console.WriteLine("Now let's begin the scenario.");
             Console.WriteLine(new string('-', 80));
-            await Demo();
+            await Demo(true);
 
             Console.WriteLine(new string('-', 80));
             Console.WriteLine("Finally, let's clean up our resources.");
@@ -111,8 +112,9 @@ public static class ResilientServiceWorkflow
     /// <summary>
     /// Deploy necessary resources for the scenario.
     /// </summary>
-    /// <returns>Async task.</returns>
-    public static async Task Deploy()
+    /// <param name="interactive">True to run as interactive.</param>
+    /// <returns>True if successful.</returns>
+    public static async Task<bool> Deploy(bool interactive)
     {
         var protocol = "HTTP";
         var port = 80;
@@ -134,15 +136,16 @@ public static class ResilientServiceWorkflow
             "\t* An Elastic Load Balancing (ELB) load balancer that targets the Auto Scaling group to distribute requests.");
         Console.WriteLine(new string('-', 80));
         Console.WriteLine("Press Enter when you're ready to start deploying resources.");
-        Console.ReadLine();
+        if (interactive)
+            Console.ReadLine();
 
         // Create and populate the DynamoDB table.
         var databaseTableName = _configuration["databaseName"];
         var recommendationsPath = Path.Join(_configuration["resourcePath"],
             "recommendations.json");
         Console.WriteLine($"Creating and populating a DynamoDB table named {databaseTableName}.");
-        _recommendations.CreateDatabase(databaseTableName);
-        _recommendations.PopulateDatabase(databaseTableName, recommendationsPath);
+        await _recommendations.CreateDatabaseWithName(databaseTableName);
+        await _recommendations.PopulateDatabase(databaseTableName, recommendationsPath);
 
         Console.WriteLine(new string('-', 80));
 
@@ -179,7 +182,8 @@ public static class ResilientServiceWorkflow
 
         Console.WriteLine(new string('-', 80));
         Console.WriteLine("Press Enter when you're ready to continue.");
-        Console.ReadLine();
+        if (interactive)
+            Console.ReadLine();
 
         Console.WriteLine("Creating variables that control the flow of the demo.");
         await _smParameterWrapper.Reset();
@@ -218,7 +222,7 @@ public static class ResilientServiceWorkflow
                     + "allows access from this computer. You can either add it automatically from this\n"
                     + "example or add it yourself using the AWS Management Console.\n");
 
-                if (GetYesNoResponse(
+                if (!interactive || GetYesNoResponse(
                         "Do you want to add a rule to the security group to allow inbound traffic from your computer's IP address?"))
                 {
                     await _autoScalerWrapper.OpenInboundPort(defaultSecurityGroup.GroupId, port, ipString);
@@ -227,7 +231,7 @@ public static class ResilientServiceWorkflow
 
             if (!sshPortIsOpen)
             {
-                if (GetYesNoResponse(
+                if (!interactive || GetYesNoResponse(
                         "Do you want to add a rule to the security group to allow inbound SSH traffic for debugging from your computer's IP address?"))
                 {
                     await _autoScalerWrapper.OpenInboundPort(defaultSecurityGroup.GroupId, sshPort, ipString);
@@ -250,14 +254,17 @@ public static class ResilientServiceWorkflow
         }
         Console.WriteLine(new string('-', 80));
         Console.WriteLine("Press Enter when you're ready to continue with the demo.");
-        Console.ReadLine();
+        if (interactive)
+            Console.ReadLine();
+        return true;
     }
 
     /// <summary>
     /// Demonstrate the steps of the scenario.
     /// </summary>
+    /// <param name="interactive">True to run as an interactive scenario.</param>
     /// <returns>Async task.</returns>
-    public static async Task<bool> Demo()
+    public static async Task<bool> Demo(bool interactive)
     {
         var ssmOnlyPolicy = Path.Join(_configuration["resourcePath"],
             "ssm_only_policy.json");
@@ -271,7 +278,8 @@ public static class ResilientServiceWorkflow
                           "architecture can keep the web service running in spite of these failures.");
         Console.WriteLine(new string('-', 88));
         Console.WriteLine("At the start, the load balancer endpoint returns recommendations and reports that all targets are healthy.");
-        await DemoActionChoices();
+        if (interactive)
+            await DemoActionChoices();
 
         Console.WriteLine($"The web service running on the EC2 instances gets recommendations by querying a DynamoDB table.\n" +
                           $"The table name is contained in a Systems Manager parameter named '{_smParameterWrapper.TableParameter}'.\n" +
@@ -279,7 +287,8 @@ public static class ResilientServiceWorkflow
         await _smParameterWrapper.PutParameterByName(_smParameterWrapper.TableParameter, "this-is-not-a-table");
         Console.WriteLine("\nNow, sending a GET request to the load balancer endpoint returns a failure code. But, the service reports as\n" +
                           "healthy to the load balancer because shallow health checks don't check for failure of the recommendation service.");
-        await DemoActionChoices();
+        if (interactive)
+            await DemoActionChoices();
 
         Console.WriteLine("Instead of failing when the recommendation service fails, the web service can return a static response.");
         Console.WriteLine("While this is not a perfect solution, it presents the customer with a somewhat better experience than failure.");
@@ -288,7 +297,8 @@ public static class ResilientServiceWorkflow
 
         Console.WriteLine("\nNow, sending a GET request to the load balancer endpoint returns a static response.");
         Console.WriteLine("The service still reports as healthy because health checks are still shallow.");
-        await DemoActionChoices();
+        if (interactive)
+            await DemoActionChoices();
 
         Console.WriteLine("Let's reinstate the recommendation service.\n");
         await _smParameterWrapper.PutParameterByName(_smParameterWrapper.TableParameter, _smParameterWrapper.TableName);
@@ -316,7 +326,8 @@ public static class ResilientServiceWorkflow
             "Now, sending a GET request to the load balancer endpoint returns either a recommendation or a static response,\n" +
             "depending on which instance is selected by the load balancer.\n"
         );
-        await DemoActionChoices();
+        if (interactive)
+            await DemoActionChoices();
 
         Console.WriteLine("\nLet's implement a deep health check. For this demo, a deep health check tests whether");
         Console.WriteLine("the web service can access the DynamoDB table that it depends on for recommendations. Note that");
@@ -334,7 +345,8 @@ public static class ResilientServiceWorkflow
         Console.WriteLine("instance. Sending a GET request to the load balancer endpoint always returns a recommendation, because");
         Console.WriteLine("the load balancer takes unhealthy instances out of its rotation.");
 
-        await DemoActionChoices();
+        if (interactive)
+            await DemoActionChoices();
 
         Console.WriteLine("\nBecause the instances in this demo are controlled by an auto scaler, the simplest way to fix an unhealthy");
         Console.WriteLine("instance is to terminate it and let the auto scaler start a new instance to replace it.");
@@ -347,7 +359,8 @@ public static class ResilientServiceWorkflow
         Console.WriteLine("Note that terminating and replacing an instance typically takes several minutes, during which time you");
         Console.WriteLine("can see the changing health check status until the new instance is running and healthy.");
 
-        await DemoActionChoices();
+        if (interactive)
+            await DemoActionChoices();
 
         Console.WriteLine("\nIf the recommendation service fails now, deep health checks mean all instances report as unhealthy.");
 
@@ -357,7 +370,8 @@ public static class ResilientServiceWorkflow
         Console.WriteLine("unhealthy instances, allowing them to fail open and return a static response rather than fail");
         Console.WriteLine("closed and report failure to the customer.");
 
-        await DemoActionChoices();
+        if (interactive)
+            await DemoActionChoices();
         await _smParameterWrapper.Reset();
 
         Console.WriteLine(new string('-', 80));
@@ -367,9 +381,9 @@ public static class ResilientServiceWorkflow
     /// <summary>
     /// Clean up the resources from the scenario.
     /// </summary>
-    /// <param name="askUser">True to ask the user for cleanup.</param>
+    /// <param name="interactive">True to ask the user for cleanup.</param>
     /// <returns>Async task.</returns>
-    public static async Task<bool> DestroyResources(bool askUser)
+    public static async Task<bool> DestroyResources(bool interactive)
     {
         Console.WriteLine(new string('-', 80));
         Console.WriteLine(
@@ -377,18 +391,18 @@ public static class ResilientServiceWorkflow
             "that were created for this demo."
         );
 
-        if (GetYesNoResponse("Do you want to clean up all demo resources? (y/n) "))
+        if (!interactive || GetYesNoResponse("Do you want to clean up all demo resources? (y/n) "))
         {
             await _elasticLoadBalancerWrapper.DeleteLoadBalancerByName(_elasticLoadBalancerWrapper.LoadBalancerName);
             await _elasticLoadBalancerWrapper.DeleteTargetGroupByName(_elasticLoadBalancerWrapper.TargetGroupName);
-            await _autoScalerWrapper.TryDeleteGroupByName(_autoScalerWrapper.GroupName);
+            await _autoScalerWrapper.TerminateAndDeleteAutoScalingGroupByName(_autoScalerWrapper.GroupName);
             await _autoScalerWrapper.DeleteKeyPairByName(_autoScalerWrapper.KeyPairName);
             await _autoScalerWrapper.DeleteTemplateByName(_autoScalerWrapper.LaunchTemplateName);
             await _autoScalerWrapper.DeleteInstanceProfile(
                 _autoScalerWrapper.BadCredsProfileName,
                 _autoScalerWrapper.BadCredsRoleName
             );
-            _recommendations.Destroy();
+            await _recommendations.DestroyDatabaseByName(_recommendations.TableName);
         }
         else
         {
@@ -401,6 +415,7 @@ public static class ResilientServiceWorkflow
         Console.WriteLine(new string('-', 80));
         return true;
     }
+    // snippet-end:[ResilientService.dotnetv3.Scenario]
 
     /// <summary>
     /// Present the user with the demo action choices.

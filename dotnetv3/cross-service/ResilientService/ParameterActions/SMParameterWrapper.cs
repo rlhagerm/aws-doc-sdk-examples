@@ -6,6 +6,7 @@ using Amazon.SimpleSystemsManagement.Model;
 
 namespace ParameterActions;
 
+// snippet-start:[ResilientService.dotnetv3.SmParameterWrapper]
 /// <summary>
 /// Encapsulates Systems Manager parameter operations. This example uses these parameters
 /// to drive the demonstration of resilient architecture, such as failure of a dependency or
@@ -26,9 +27,9 @@ public class SmParameterWrapper
     public string FailureResponseParameter => _failureResponseParameter;
 
     /// <summary>
-    /// Constructor for the SMParameterWrapper.
+    /// Constructor for the SmParameterWrapper.
     /// </summary>
-    /// <param name="amazonSimpleSystemsManagement">The injection ssm client.</param>
+    /// <param name="amazonSimpleSystemsManagement">The injected Simple Systems Management client.</param>
     /// <param name="tableName">The name of the DynamoDB table used for the recommendation service.</param>
     public SmParameterWrapper(IAmazonSimpleSystemsManagement amazonSimpleSystemsManagement, string tableName)
     {
@@ -59,3 +60,4 @@ public class SmParameterWrapper
             new PutParameterRequest() { Name = name, Value = value });
     }
 }
+// snippet-end:[ResilientService.dotnetv3.SmParameterWrapper]

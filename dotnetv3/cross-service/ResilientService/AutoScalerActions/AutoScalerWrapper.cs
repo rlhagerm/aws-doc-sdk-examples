@@ -397,7 +397,7 @@ public class AutoScalerWrapper
         }
         catch (AmazonClientException)
         {
-            // todo: not found exception?
+            Console.WriteLine($"Unable to delete template {templateName}.");
         }
     }
     // snippet-end:[ResilientService.dotnetv3.Ec2.DeleteLaunchTemplate]
@@ -491,6 +491,15 @@ public class AutoScalerWrapper
     // snippet-end:[ResilientService.dotnetv3.Ec2.GetInstanceProfile]
 
     // snippet-start:[ResilientService.dotnetv3.Ec2.ReplaceInstanceProfile]
+    /// <summary>
+    /// Replace the profile associated with a running instance. After the profile is replaced, the instance
+    /// is rebooted to ensure that it uses the new profile. When the instance is ready, Systems Manager is
+    /// used to restart the Python web server.
+    /// </summary>
+    /// <param name="instanceId">The Id of the instance to update.</param>
+    /// <param name="credsProfileName">The name of the new profile to associate with the specified instance.</param>
+    /// <param name="associationId">The Id of the existing profile association for the instance.</param>
+    /// <returns>Async task.</returns>
     public async Task ReplaceInstanceProfile(string instanceId, string credsProfileName, string associationId)
     {
         await _amazonEc2.ReplaceIamInstanceProfileAssociationAsync(
@@ -735,7 +744,7 @@ public class AutoScalerWrapper
     }
     // snippet-end:[ResilientService.dotnetv3.Ec2.AuthorizeSecurityGroupIngress]
 
-    // snippet-start:[ResilientService.dotnetv3.Ec2.AttachLoadBalancer]
+    // snippet-start:[ResilientService.dotnetv3.AutoScaling.AttachLoadBalancer]
     /// <summary>
     /// Attaches an Elastic Load Balancing (ELB) target group to this EC2 Auto Scaling group.
     /// The 
@@ -752,7 +761,7 @@ public class AutoScalerWrapper
                 TargetGroupARNs = new List<string>() { targetGroupArn }
             });
     }
-    // snippet-end:[ResilientService.dotnetv3.Ec2.AttachLoadBalancer]
+    // snippet-end:[ResilientService.dotnetv3.AutoScaling.AttachLoadBalancer]
 }
 
 // snippet-end:[ResilientService.dotnetv3.AutoScalerWrapper]
