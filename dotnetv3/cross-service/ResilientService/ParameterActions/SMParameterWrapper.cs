@@ -20,7 +20,7 @@ public class SmParameterWrapper
     private readonly string _tableParameter = "doc-example-resilient-architecture-table";
     private readonly string _failureResponseParameter = "doc-example-resilient-architecture-failure-response";
     private readonly string _healthCheckParameter = "doc-example-resilient-architecture-health-check";
-    private readonly string _tableName;
+    private readonly string _tableName = "";
 
     public string TableParameter => _tableParameter;
     public string TableName => _tableName;
@@ -35,7 +35,7 @@ public class SmParameterWrapper
     public SmParameterWrapper(IAmazonSimpleSystemsManagement amazonSimpleSystemsManagement, IConfiguration configuration)
     {
         _amazonSimpleSystemsManagement = amazonSimpleSystemsManagement;
-        _tableName = configuration["databaseName"];
+        _tableName = configuration["databaseName"]!;
     }
 
     /// <summary>

@@ -15,9 +15,9 @@ public class RecommendationModel
     public int ItemId { get; set; }
 
     [DynamoDBHashKey]
-    public string MediaType { get; set; }
+    public string MediaType { get; set; } = null!;
 
-    public string Title { get; set; }
+    public string Title { get; set; } = null!;
 
-    public string Creator { get; set; }
+    public string Creator { get; set; } = null!;
 }

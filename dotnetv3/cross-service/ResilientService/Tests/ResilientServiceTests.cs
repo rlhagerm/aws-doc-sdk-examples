@@ -54,7 +54,8 @@ public class ResilientServiceTests
             new AmazonSimpleSystemsManagementClient(),
             new AmazonIdentityManagementServiceClient(),
             _configuration);
-        _recommendations = new Recommendations(new AmazonDynamoDBClient());
+        _recommendations = new Recommendations(new AmazonDynamoDBClient(),
+            _configuration);
         _smParameterWrapper =
             new SmParameterWrapper(new AmazonSimpleSystemsManagementClient(),
                 _configuration);

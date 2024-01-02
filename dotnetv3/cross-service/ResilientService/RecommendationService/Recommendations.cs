@@ -5,6 +5,7 @@ using System.Text.Json;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
 using Amazon.DynamoDBv2.Model;
+using Microsoft.Extensions.Configuration;
 
 namespace RecommendationService;
 
@@ -24,10 +25,12 @@ public class Recommendations
     /// Constructor for the Recommendations service.
     /// </summary>
     /// <param name="amazonDynamoDb">The injected DynamoDb client.</param>
-    public Recommendations(IAmazonDynamoDB amazonDynamoDb)
+    /// <param name="configuration">The injected configuration.</param>
+    public Recommendations(IAmazonDynamoDB amazonDynamoDb, IConfiguration configuration)
     {
         _amazonDynamoDb = amazonDynamoDb;
         _context = new DynamoDBContext(_amazonDynamoDb);
+        _tableName = configuration["databaseName"]!;
     }
 
     /// <summary>
@@ -119,7 +122,7 @@ public class Recommendations
             JsonSerializer.Deserialize<RecommendationModel[]>(recommendationsText);
         var batchWrite = _context.CreateBatchWrite<RecommendationModel>();
 
-        foreach (var record in records)
+        foreach (var record in records!)
         {
             batchWrite.AddPutItem(record);
         }

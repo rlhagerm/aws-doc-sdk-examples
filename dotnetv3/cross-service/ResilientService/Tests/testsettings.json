@@ -1,5 +1,7 @@
 {
-  "roleName": "sagemaker-sdk-example-test-role",
-  "queueName": "sagemaker-sdk-example-test-queue",
-  "bucketName": "sagemaker-sdk-example-test-bucket"
+  "resourcePath": "..\\..\\..\\..\\workflows\\resilient_service\\resources",
+  "databaseName": "reslience-sdk-example-database",
+  "resourcePrefix": "dotnetres",
+  "instanceType": "t3.micro",
+  "amiParam": "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
 }
