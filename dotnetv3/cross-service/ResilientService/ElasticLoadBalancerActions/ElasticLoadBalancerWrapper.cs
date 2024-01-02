@@ -1,6 +1,8 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. 
 // SPDX-License-Identifier:  Apache-2.0
 
+using System.Text.Json.Nodes;
+using System.Xml;
 using Amazon.ElasticLoadBalancingV2;
 using Amazon.ElasticLoadBalancingV2.Model;
 using Microsoft.Extensions.Configuration;
@@ -27,6 +29,7 @@ public class ElasticLoadBalancerWrapper
     /// Constructor for the Elastic Load Balancer wrapper.
     /// </summary>
     /// <param name="amazonElasticLoadBalancingV2">The injected load balancing v2 client.</param>
+    /// <param name="configuration">The injected configuration.</param>
     public ElasticLoadBalancerWrapper(
         IAmazonElasticLoadBalancingV2 amazonElasticLoadBalancingV2,
         IConfiguration configuration)
@@ -61,14 +64,15 @@ public class ElasticLoadBalancerWrapper
     // snippet-end:[ResilientService.dotnetv3.ELB.DescribeLoadBalancers]
 
     /// <summary>
-    /// Return the GET response for an endpoint.
+    /// Return the GET response for an endpoint as text.
     /// </summary>
     /// <param name="endpoint">The endpoint for the request.</param>
     /// <returns>The request response.</returns>
     public async Task<string> GetEndPointResponse(string endpoint)
     {
         var endpointResponse = await _httpClient.GetAsync($"http://{endpoint}");
-        return endpointResponse.Content.ToString()!;
+        var textResponse = await endpointResponse.Content.ReadAsStringAsync();
+        return textResponse!;
     }
 
     // snippet-start:[ResilientService.dotnetv3.ELB.DescribeTargetHealth]
@@ -201,11 +205,6 @@ public class ElasticLoadBalancerWrapper
     }
     // snippet-end:[ResilientService.dotnetv3.ELB.CreateLoadBalancer]
     // snippet-end:[ResilientService.dotnetv3.ELB.CreateListener]
-
-    //public void AttachLoadBalancer(object targetGroup)
-    //{
-    //    throw new NotImplementedException();
-    //}
 
     /// <summary>
     /// Verify this computer can successfully send a GET request to the

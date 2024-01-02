@@ -1,7 +1,10 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. 
 // SPDX-License-Identifier:  Apache-2.0
 
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.DataModel;
 using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
 
@@ -14,6 +17,7 @@ namespace RecommendationService;
 public class Recommendations
 {
     private readonly IAmazonDynamoDB _amazonDynamoDb;
+    private readonly DynamoDBContext _context;
     private readonly string _tableName;
 
     public string TableName => _tableName;
@@ -22,11 +26,10 @@ public class Recommendations
     /// Constructor for the Recommendations service.
     /// </summary>
     /// <param name="amazonDynamoDb">The injected DynamoDb client.</param>
-    /// <param name="tableName">The name of the DynamoDB table used for the recommendation service.</param>
-    public Recommendations(IAmazonDynamoDB amazonDynamoDb, string tableName)
+    public Recommendations(IAmazonDynamoDB amazonDynamoDb)
     {
         _amazonDynamoDb = amazonDynamoDb;
-        _tableName = tableName;
+        _context = new DynamoDBContext(_amazonDynamoDb);
     }
 
     /// <summary>
@@ -34,49 +37,50 @@ public class Recommendations
     /// </summary>
     /// <param name="tableName">The name for the table.</param>
     /// <returns>True when ready.</returns>
-    public async Task<bool> CreateDatabaseWithName(string? tableName)
+    public async Task<bool> CreateDatabaseWithName(string tableName)
     {
         try
         {
-            await _amazonDynamoDb.CreateTableAsync(
-            new CreateTableRequest()
+            Console.Write($"Creating table {tableName}...");
+            var createRequest = new CreateTableRequest()
             {
                 TableName = tableName,
                 AttributeDefinitions = new List<AttributeDefinition>()
-                {
-                    new()
                     {
-                        AttributeName = "MediaType",
-                        AttributeType = ScalarAttributeType.S
+                        new AttributeDefinition()
+                        {
+                            AttributeName = "MediaType",
+                            AttributeType = ScalarAttributeType.S
+                        },
+                        new AttributeDefinition()
+                        {
+                            AttributeName = "ItemId",
+                            AttributeType = ScalarAttributeType.N
+                        }
                     },
-                    new()
-                    {
-                        AttributeName = "ItemId",
-                        AttributeType = ScalarAttributeType.N
-                    }
-                },
                 KeySchema = new List<KeySchemaElement>()
-                {
-                    new()
                     {
-                        AttributeName = "MediaType",
-                        KeyType = KeyType.HASH
+                        new KeySchemaElement()
+                        {
+                            AttributeName = "MediaType",
+                            KeyType = KeyType.HASH
+                        },
+                        new KeySchemaElement()
+                        {
+                            AttributeName = "ItemId",
+                            KeyType = KeyType.RANGE
+                        }
                     },
-                    new()
+                ProvisionedThroughput = new ProvisionedThroughput()
                     {
-                        AttributeName = "ItemId",
-                        KeyType = KeyType.RANGE
+                        ReadCapacityUnits = 5,
+                        WriteCapacityUnits = 5
                     }
-                },
-                ProvisionedThroughput =
-                {
-                    ReadCapacityUnits = 5,
-                    WriteCapacityUnits = 5
-                }
-            });
+            };
+            await _amazonDynamoDb.CreateTableAsync(createRequest);
 
             // Wait until the table is ACTIVE and then report success.
-            Console.Write("Waiting for table to become active...");
+            Console.Write("\nWaiting for table to become active...");
 
             var request = new DescribeTableRequest
             {
@@ -107,19 +111,22 @@ public class Recommendations
     /// <summary>
     /// Populate the database table with data from a specified path.
     /// </summary>
-    /// <param name="databaseTableName">The name fo the table.</param>
+    /// <param name="databaseTableName">The name of the table.</param>
     /// <param name="recommendationsPath">The path of the recommendations data.</param>
     /// <returns>Async task.</returns>
     public async Task PopulateDatabase(string databaseTableName, string recommendationsPath)
     {
         var recommendationsText = await File.ReadAllTextAsync(recommendationsPath);
-        var records = Document.FromJson(recommendationsText);
-        var table = Table.LoadTable(_amazonDynamoDb, databaseTableName);
+        var records =
+            JsonSerializer.Deserialize<RecommendationModel[]>(recommendationsText);
+        var batchWrite = _context.CreateBatchWrite<RecommendationModel>();
 
-        foreach (var record in records.AsArrayOfDynamoDBEntry())
+        foreach (var record in records)
         {
-            await table.PutItemAsync(record.AsDocument());
+            batchWrite.AddPutItem(record);
         }
+
+        await batchWrite.ExecuteAsync();
     }
 
     /// <summary>

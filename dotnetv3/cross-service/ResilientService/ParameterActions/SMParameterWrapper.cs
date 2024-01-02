@@ -3,6 +3,7 @@
 
 using Amazon.SimpleSystemsManagement;
 using Amazon.SimpleSystemsManagement.Model;
+using Microsoft.Extensions.Configuration;
 
 namespace ParameterActions;
 
@@ -21,8 +22,8 @@ public class SmParameterWrapper
     private readonly string _healthCheckParameter = "doc-example-resilient-architecture-health-check";
     private readonly string _tableName;
 
-    public string TableName => _tableName;
     public string TableParameter => _tableParameter;
+    public string TableName => _tableName;
     public string HealthCheckParameter => _healthCheckParameter;
     public string FailureResponseParameter => _failureResponseParameter;
 
@@ -30,11 +31,11 @@ public class SmParameterWrapper
     /// Constructor for the SmParameterWrapper.
     /// </summary>
     /// <param name="amazonSimpleSystemsManagement">The injected Simple Systems Management client.</param>
-    /// <param name="tableName">The name of the DynamoDB table used for the recommendation service.</param>
-    public SmParameterWrapper(IAmazonSimpleSystemsManagement amazonSimpleSystemsManagement, string tableName)
+    /// <param name="configuration">The injected configuration.</param>
+    public SmParameterWrapper(IAmazonSimpleSystemsManagement amazonSimpleSystemsManagement, IConfiguration configuration)
     {
         _amazonSimpleSystemsManagement = amazonSimpleSystemsManagement;
-        _tableName = tableName;
+        _tableName = configuration["databaseName"];
     }
 
     /// <summary>
@@ -57,7 +58,7 @@ public class SmParameterWrapper
     public async Task PutParameterByName(string name, string value)
     {
         await _amazonSimpleSystemsManagement.PutParameterAsync(
-            new PutParameterRequest() { Name = name, Value = value });
+            new PutParameterRequest() { Name = name, Value = value, Overwrite = true});
     }
 }
 // snippet-end:[ResilientService.dotnetv3.SmParameterWrapper]

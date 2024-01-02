@@ -13,6 +13,7 @@ using Amazon.Runtime.Internal.Util;
 using Amazon.SimpleSystemsManagement;
 using Amazon.SimpleSystemsManagement.Model;
 using Microsoft.Extensions.Configuration;
+using AlreadyExistsException = Amazon.AutoScaling.Model.AlreadyExistsException;
 
 namespace AutoScalerActions;
 
@@ -38,11 +39,11 @@ public class AutoScalerWrapper
     private readonly string _badCredsRoleName = "";
     private readonly string _badCredsPolicyName = "";
     private readonly string _keyPairName = "";
-    private ILogger _logger;
 
     public string GroupName => _groupName;
     public string KeyPairName => _keyPairName;
     public string LaunchTemplateName => _launchTemplateName;
+    public string InstancePolicyName => _instancePolicyName;
     public string BadCredsProfileName => _badCredsProfileName;
     public string BadCredsRoleName => _badCredsRoleName;
     public string BadCredsPolicyName => _badCredsPolicyName;
@@ -70,39 +71,50 @@ public class AutoScalerWrapper
         _instanceType = configuration["instanceType"];
         _amiParam = configuration["amiParam"];
 
-        _launchTemplateName = prefix + "-template";
-        _groupName = prefix + "-group";
-        _instancePolicyName = prefix + "-pol";
-        _instanceRoleName = prefix + "-role";
-        _instanceProfileName = prefix + "-prof";
-        _badCredsPolicyName = prefix + "-bc-pol";
-        _badCredsRoleName = prefix + "-bc-role";
-        _badCredsProfileName = prefix + "-bc-prof";
-        _keyPairName = prefix + "-key-pair";
+        _launchTemplateName = prefix + "-template6";
+        _groupName = prefix + "-group6";
+        _instancePolicyName = prefix + "-pol6";
+        _instanceRoleName = prefix + "-role6";
+        _instanceProfileName = prefix + "-prof6";
+        _badCredsPolicyName = prefix + "-bc-pol6";
+        _badCredsRoleName = prefix + "-bc-role6";
+        _badCredsProfileName = prefix + "-bc-prof6";
+        _keyPairName = prefix + "-key-pair6";
     }
 
     // snippet-start:[ResilientService.dotnetv3.iam.CreateInstanceProfile]
     /// <summary>
-    /// Create a policy, role, and profile that is associated with instances.
+    /// Create a policy, role, and profile that is associated with instances with a specified name.
     /// An instance's associated profile defines a role that is assumed by the
     /// instance.The role has attached policies that specify the AWS permissions granted to
     /// clients that run on the instance.
     /// </summary>
+    /// <param name="policyName">Name to use for the policy.</param>
+    /// <param name="roleName">Name to use for the role.</param>
+    /// <param name="profileName">Name to use for the profile.</param>
     /// <param name="ssmOnlyPolicyFile">Path to a policy file for SSM.</param>
     /// <param name="awsManagedPolicies">AWS Managed policies to be attached to the role.</param>
     /// <returns>The Arn of the profile.</returns>
-    public async Task<string> CreateInstanceProfile(string ssmOnlyPolicyFile, List<string>? awsManagedPolicies = null)
+    public async Task<string> CreateInstanceProfileWithName(
+        string policyName,
+        string roleName,
+        string profileName,
+        string ssmOnlyPolicyFile,
+        List<string>? awsManagedPolicies = null)
     {
-        var assumeRoleDoc = "{"
-            +"\"Version\": \"2012-10-17\","
-            +"\"Statement\": ["
-            +"{"
-                +"\"Effect\": \"Allow\","
-                +"\"Principal\": { \"Service\": \"ec2.amazonaws.com\"},"
-                +"\"Action\": \"sts:AssumeRole\","
-            +"}"
-            +"],"
-        +"}";
+
+        var assumeRoleDoc = "{" +
+                                   "\"Version\": \"2012-10-17\"," +
+                                   "\"Statement\": [{" +
+                                        "\"Effect\": \"Allow\"," +
+                                        "\"Principal\": {" +
+                                        "\"Service\": [" +
+                                            "\"ec2.amazonaws.com\"" +
+                                        "]" +
+                                        "}," +
+                                   "\"Action\": \"sts:AssumeRole\"" +
+                                   "}]" +
+                               "}";
 
         var policyDocument = await File.ReadAllTextAsync(ssmOnlyPolicyFile);
 
@@ -113,7 +125,8 @@ public class AutoScalerWrapper
             var createPolicyResult = await _amazonIam.CreatePolicyAsync(
                 new CreatePolicyRequest
                 {
-                    PolicyName = _instancePolicyName, PolicyDocument = policyDocument
+                    PolicyName = policyName,
+                    PolicyDocument = policyDocument
                 });
             policyArn = createPolicyResult.Policy.Arn;
         }
@@ -128,7 +141,7 @@ public class AutoScalerWrapper
             // Get the entire list using the paginator.
             await foreach (var policy in policiesPaginator.Policies)
             {
-                if (policy.PolicyName.Equals(_instancePolicyName))
+                if (policy.PolicyName.Equals(policyName))
                 {
                     policyArn = policy.Arn;
                 }
@@ -144,11 +157,11 @@ public class AutoScalerWrapper
         {
             await _amazonIam.CreateRoleAsync(new CreateRoleRequest()
             {
-                RoleName = _instanceRoleName, AssumeRolePolicyDocument = assumeRoleDoc,
+                RoleName = roleName, AssumeRolePolicyDocument = assumeRoleDoc,
             });
             await _amazonIam.AttachRolePolicyAsync(new AttachRolePolicyRequest()
             {
-                RoleName = _instanceRoleName, PolicyArn = policyArn
+                RoleName = roleName, PolicyArn = policyArn
             });
             if (awsManagedPolicies != null)
             {
@@ -157,7 +170,7 @@ public class AutoScalerWrapper
                     await _amazonIam.AttachRolePolicyAsync(new AttachRolePolicyRequest()
                     {
                         PolicyArn = $"arn:aws:iam::aws:policy/{awsPolicy}",
-                        RoleName = _instanceRoleName
+                        RoleName = roleName
                     });
                 }
             }
@@ -173,7 +186,7 @@ public class AutoScalerWrapper
             var profileCreateResponse = await _amazonIam.CreateInstanceProfileAsync(
                 new CreateInstanceProfileRequest()
                 {
-                    InstanceProfileName = _instanceProfileName
+                    InstanceProfileName = profileName
                 });
             // Allow time for the profile to be ready.
             profileArn = profileCreateResponse.InstanceProfile.Arn;
@@ -181,8 +194,8 @@ public class AutoScalerWrapper
             await _amazonIam.AddRoleToInstanceProfileAsync(
                 new AddRoleToInstanceProfileRequest()
                 {
-                    InstanceProfileName = _instanceProfileName,
-                    RoleName = _instanceRoleName
+                    InstanceProfileName = profileName,
+                    RoleName = roleName
                 });
 
         }
@@ -192,7 +205,7 @@ public class AutoScalerWrapper
             var profileGetResponse = await _amazonIam.GetInstanceProfileAsync(
                 new GetInstanceProfileRequest()
                 {
-                    InstanceProfileName = _instanceProfileName
+                    InstanceProfileName = profileName
                 });
             profileArn = profileGetResponse.InstanceProfile.Arn;
         }
@@ -208,11 +221,18 @@ public class AutoScalerWrapper
     /// <returns>Async task.</returns>
     public async Task CreateKeyPair(string newKeyPairName)
     {
-        var keyResponse = await _amazonEc2.CreateKeyPairAsync(
-            new CreateKeyPairRequest() { KeyName = newKeyPairName });
-        await File.WriteAllTextAsync($"{newKeyPairName}.pem",
-            keyResponse.KeyPair.KeyMaterial);
-        Console.WriteLine($"Created key pair {newKeyPairName}.");
+        try
+        {
+            var keyResponse = await _amazonEc2.CreateKeyPairAsync(
+                new CreateKeyPairRequest() { KeyName = newKeyPairName });
+            await File.WriteAllTextAsync($"{newKeyPairName}.pem",
+                keyResponse.KeyPair.KeyMaterial);
+            Console.WriteLine($"Created key pair {newKeyPairName}.");
+        }
+        catch (AlreadyExistsException)
+        {
+            Console.WriteLine("Key pair already exists.");
+        }
     }
     // snippet-end:[ResilientService.dotnetv3.ec2.CreateKeyPair]
 
@@ -250,9 +270,10 @@ public class AutoScalerWrapper
     public async Task<Amazon.EC2.Model.LaunchTemplate> CreateTemplate(string startupScriptPath, string instancePolicyPath)
     {
         await CreateKeyPair(_keyPairName);
-        await CreateInstanceProfile(_instancePolicyName);
+        await CreateInstanceProfileWithName(_instancePolicyName, _instanceRoleName, _instanceProfileName, instancePolicyPath);
 
         var startServerText = await File.ReadAllTextAsync(startupScriptPath);
+        var plainTextBytes = System.Text.Encoding.UTF8.GetBytes(startServerText);
 
         var amiLatest = await _amazonSsm.GetParameterAsync(
             new GetParameterRequest() { Name = _amiParam });
@@ -272,8 +293,7 @@ public class AutoScalerWrapper
                                 Name = _instanceProfileName
                         },
                     KeyName = _keyPairName,
-                    UserData = Encoding.UTF8.GetBytes(startServerText)
-                        .ToString()
+                    UserData = System.Convert.ToBase64String(plainTextBytes)
                 }
             });
         return launchTemplateResponse.LaunchTemplate;
@@ -533,7 +553,7 @@ public class AutoScalerWrapper
                     }
                 }
             }
-
+            Console.WriteLine($"Sending restart command to instance {instanceId}");
             await _amazonSsm.SendCommandAsync(
                 new SendCommandRequest()
                 {
@@ -565,7 +585,7 @@ public class AutoScalerWrapper
                 await _amazonAutoScaling.TerminateInstanceInAutoScalingGroupAsync(
                     new TerminateInstanceInAutoScalingGroupRequest()
                     {
-                        InstanceId = instanceId, ShouldDecrementDesiredCapacity = true
+                        InstanceId = instanceId, ShouldDecrementDesiredCapacity = false
                     });
                 stopping = true;
             }

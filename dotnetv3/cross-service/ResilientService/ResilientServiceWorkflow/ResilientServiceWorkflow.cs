@@ -1,8 +1,10 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. 
 // SPDX-License-Identifier:  Apache-2.0
 
+using System.Text.Json;
 using Amazon.AutoScaling;
 using Amazon.DynamoDBv2;
+using Amazon.EC2;
 using Amazon.ElasticLoadBalancingV2;
 using Amazon.IdentityManagement;
 using Amazon.SimpleSystemsManagement;
@@ -55,6 +57,7 @@ public static class ResilientServiceWorkflow
                     .AddAWSService<IAmazonElasticLoadBalancingV2>()
                     .AddAWSService<IAmazonSimpleSystemsManagement>()
                     .AddAWSService<IAmazonAutoScaling>()
+                    .AddAWSService<IAmazonEC2>()
                     .AddTransient<AutoScalerWrapper>()
                     .AddTransient<ElasticLoadBalancerWrapper>()
                     .AddTransient<SmParameterWrapper>()
@@ -142,23 +145,22 @@ public static class ResilientServiceWorkflow
         // Create and populate the DynamoDB table.
         var databaseTableName = _configuration["databaseName"];
         var recommendationsPath = Path.Join(_configuration["resourcePath"],
-            "recommendations.json");
+            "recommendations_objects.json");
         Console.WriteLine($"Creating and populating a DynamoDB table named {databaseTableName}.");
-        await _recommendations.CreateDatabaseWithName(databaseTableName);
+         await _recommendations.CreateDatabaseWithName(databaseTableName);
         await _recommendations.PopulateDatabase(databaseTableName, recommendationsPath);
-
         Console.WriteLine(new string('-', 80));
 
         // Create the EC2 Launch Template.
 
         Console.WriteLine(
-            "Creating an EC2 launch template that runs '{startup_script}' when an instance starts.\n"
-            + "This script starts a Python web server defined in the `server.py` script. The web server\n"
+            $"Creating an EC2 launch template that runs 'server_startup_script.sh' when an instance starts.\n"
+            + "\nThis script starts a Python web server defined in the `server.py` script. The web server\n"
             + "listens to HTTP requests on port 80 and responds to requests to '/' and to '/healthcheck'.\n"
             + "For demo purposes, this server is run as the root user. In production, the best practice is to\n"
             + "run a web server, such as Apache, with least-privileged credentials.");
         Console.WriteLine(
-            "The template also defines an IAM policy that each instance uses to assume a role that grants\n"
+            "\nThe template also defines an IAM policy that each instance uses to assume a role that grants\n"
             + "permissions to access the DynamoDB recommendation table and Systems Manager parameters\n"
             + "that control the flow of the demo.");
 
@@ -196,17 +198,17 @@ public static class ResilientServiceWorkflow
         var defaultVpc = await _autoScalerWrapper.GetDefaultVpc();
         var subnets = await _autoScalerWrapper.GetAllVpcSubnetsForZones(defaultVpc.VpcId, zones);
         var subnetIds = subnets.Select(s => s.SubnetId).ToList();
-        var targetGroup = await _elasticLoadBalancerWrapper.CreateTargetGroupOnVpc(_autoScalerWrapper.GroupName, protocol, port, defaultVpc.VpcId);
+        var targetGroup = await _elasticLoadBalancerWrapper.CreateTargetGroupOnVpc(_elasticLoadBalancerWrapper.TargetGroupName, protocol, port, defaultVpc.VpcId);
 
         await _elasticLoadBalancerWrapper.CreateLoadBalancerAndListener(_elasticLoadBalancerWrapper.LoadBalancerName, subnetIds, targetGroup);
         await _autoScalerWrapper.AttachLoadBalancerToGroup(_autoScalerWrapper.GroupName, targetGroup.TargetGroupArn);
-        Console.WriteLine("Verifying access to the load balancer endpoint...");
+        Console.WriteLine("\nVerifying access to the load balancer endpoint...");
         var endPoint = await _elasticLoadBalancerWrapper.GetEndpointForLoadBalancerByName(_elasticLoadBalancerWrapper.LoadBalancerName);
         var loadBalancerAccess = await _elasticLoadBalancerWrapper.VerifyLoadBalancerEndpoint(endPoint);
 
         if (!loadBalancerAccess)
         {
-            Console.WriteLine("Couldn't connect to the load balancer, verifying that the port is open...");
+            Console.WriteLine("\nCouldn't connect to the load balancer, verifying that the port is open...");
             
             var ipString = await _httpClient.GetStringAsync("https://checkip.amazonaws.com");
             ipString = ipString.Trim();
@@ -218,7 +220,7 @@ public static class ResilientServiceWorkflow
             if (!portIsOpen)
             {
                 Console.WriteLine(
-                    "For this example to work, the default security group for your default VPC must\n"
+                    "\nFor this example to work, the default security group for your default VPC must\n"
                     + "allows access from this computer. You can either add it automatically from this\n"
                     + "example or add it yourself using the AWS Management Console.\n");
 
@@ -247,7 +249,7 @@ public static class ResilientServiceWorkflow
         }
         else {
             Console.WriteLine(
-                "Couldn't get a successful response from the load balancer endpoint. Troubleshoot by\n"
+                "\nCouldn't get a successful response from the load balancer endpoint. Troubleshoot by\n"
                 + "manually verifying that your VPC and security group are configured correctly and that\n"
                 + "you can successfully make a GET request to the load balancer endpoint:\n");
             Console.WriteLine($"\thttp://{endPoint}\n");
@@ -306,7 +308,10 @@ public static class ResilientServiceWorkflow
             "\nLet's also substitute bad credentials for one of the instances in the target group so that it can't\n" +
             "access the DynamoDB recommendation table.\n"
         );
-        await _autoScalerWrapper.CreateInstanceProfile(
+        await _autoScalerWrapper.CreateInstanceProfileWithName(
+            _autoScalerWrapper.BadCredsPolicyName,
+            _autoScalerWrapper.BadCredsRoleName,
+            _autoScalerWrapper.BadCredsProfileName,
             ssmOnlyPolicy,
             new List<string> { "AmazonSSMManagedInstanceCore" }
         );
@@ -364,7 +369,7 @@ public static class ResilientServiceWorkflow
 
         Console.WriteLine("\nIf the recommendation service fails now, deep health checks mean all instances report as unhealthy.");
 
-        await _smParameterWrapper.PutParameterByName(_smParameterWrapper.TableName, "this-is-not-a-table");
+        await _smParameterWrapper.PutParameterByName(_smParameterWrapper.TableParameter, "this-is-not-a-table");
 
         Console.WriteLine($"\nWhen all instances are unhealthy, the load balancer continues to route requests even to");
         Console.WriteLine("unhealthy instances, allowing them to fail open and return a static response rather than fail");
@@ -407,7 +412,7 @@ public static class ResilientServiceWorkflow
         else
         {
             Console.WriteLine(
-                "Okay, we'll leave the resources intact.\n" +
+                "Ok, we'll leave the resources intact.\n" +
                 "Don't forget to delete them when you're done with them or you might incur unexpected charges."
             );
         }
@@ -434,7 +439,7 @@ public static class ResilientServiceWorkflow
         while (choice != 2)
         {
             choice = GetChoiceResponse(
-                "See the current state of the service by selecting one of the following choices:"
+                "\nSee the current state of the service by selecting one of the following choices:"
                 , choices);
 
             switch (choice)
@@ -446,6 +451,10 @@ public static class ResilientServiceWorkflow
                             _elasticLoadBalancerWrapper.GetEndpointForLoadBalancerByName(
                                 _elasticLoadBalancerWrapper.LoadBalancerName);
                         var response = await _elasticLoadBalancerWrapper.GetEndPointResponse(endpoint);
+                        if (response.StartsWith("{"))
+                        {
+                            response = PrettifyJson(response);
+                        }
                         Console.WriteLine(response);
                         break;
                     }
@@ -456,16 +465,13 @@ public static class ResilientServiceWorkflow
                         // Print the state of the targets.
                         foreach (var target in health)
                         {
-                            /*
-                             * state = target["TargetHealth"]["State"]
-                    print(
-                        f"\tTarget {target['Target']['Id']} on port {target['Target']['Port']} is {state}"
-                    )
-                    if state != "healthy":
-                        print(
-                            f"\t\t{target['TargetHealth']['Reason']}: {target['TargetHealth']['Description']}\n"
-                        )
-                             */
+                            var state = target.TargetHealth.State;
+                            Console.WriteLine($"\tTarget {target.Target.Id} on port {target.Target.Port} is {state}.");
+
+                            if (state != TargetHealthStateEnum.Healthy)
+                            {
+                                Console.WriteLine($"\t{target.TargetHealth.Reason}: {target.TargetHealth.Description}.");
+                            }
                         }
 
                         Console.WriteLine("Note that it can take a minute or two for the health check to update" +
@@ -475,7 +481,7 @@ public static class ResilientServiceWorkflow
                     }
                 default:
                     {
-                        Console.WriteLine("Okay, let's move on.");
+                        Console.WriteLine("Ok, let's move on.");
                         break;
                     }
             }
@@ -524,4 +530,23 @@ public static class ResilientServiceWorkflow
 
         return choiceNumber - 1;
     }
+
+    /// <summary>
+    /// Print some json with indents.
+    /// </summary>
+    /// <param name="jsonString">The json string to print.</param>
+    /// <returns>The indented json.</returns>
+    private static string PrettifyJson(string jsonString)
+    {
+        using JsonDocument jsonDocument = JsonDocument.Parse(jsonString);
+        // Convert the JsonDocument back to a pretty-printed JSON string
+        string prettifiedJson =
+            System.Text.Json.JsonSerializer.Serialize(jsonDocument.RootElement, new
+                JsonSerializerOptions
+                {
+                    WriteIndented = true
+                });
+        return prettifiedJson;
+    }
+
 }
