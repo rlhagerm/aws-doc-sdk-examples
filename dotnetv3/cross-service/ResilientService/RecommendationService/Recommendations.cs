@@ -2,10 +2,8 @@
 // SPDX-License-Identifier:  Apache-2.0
 
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
-using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
 
 namespace RecommendationService;
@@ -72,10 +70,10 @@ public class Recommendations
                         }
                     },
                 ProvisionedThroughput = new ProvisionedThroughput()
-                    {
-                        ReadCapacityUnits = 5,
-                        WriteCapacityUnits = 5
-                    }
+                {
+                    ReadCapacityUnits = 5,
+                    WriteCapacityUnits = 5
+                }
             };
             await _amazonDynamoDb.CreateTableAsync(createRequest);
 

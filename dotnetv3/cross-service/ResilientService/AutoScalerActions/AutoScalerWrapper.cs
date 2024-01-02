@@ -1,7 +1,6 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. 
 // SPDX-License-Identifier:  Apache-2.0
 
-using System.Text;
 using Amazon.AutoScaling;
 using Amazon.AutoScaling.Model;
 using Amazon.EC2;
@@ -9,7 +8,6 @@ using Amazon.EC2.Model;
 using Amazon.IdentityManagement;
 using Amazon.IdentityManagement.Model;
 using Amazon.Runtime;
-using Amazon.Runtime.Internal.Util;
 using Amazon.SimpleSystemsManagement;
 using Amazon.SimpleSystemsManagement.Model;
 using Microsoft.Extensions.Configuration;
@@ -67,7 +65,7 @@ public class AutoScalerWrapper
         _amazonSsm = amazonSsm;
         _amazonIam = amazonIam;
 
-         var prefix = configuration["resourcePrefix"];
+        var prefix = configuration["resourcePrefix"];
         _instanceType = configuration["instanceType"];
         _amiParam = configuration["amiParam"];
 
@@ -157,11 +155,13 @@ public class AutoScalerWrapper
         {
             await _amazonIam.CreateRoleAsync(new CreateRoleRequest()
             {
-                RoleName = roleName, AssumeRolePolicyDocument = assumeRoleDoc,
+                RoleName = roleName,
+                AssumeRolePolicyDocument = assumeRoleDoc,
             });
             await _amazonIam.AttachRolePolicyAsync(new AttachRolePolicyRequest()
             {
-                RoleName = roleName, PolicyArn = policyArn
+                RoleName = roleName,
+                PolicyArn = policyArn
             });
             if (awsManagedPolicies != null)
             {
@@ -289,8 +289,8 @@ public class AutoScalerWrapper
                     IamInstanceProfile =
                         new
                             LaunchTemplateIamInstanceProfileSpecificationRequest()
-                            {
-                                Name = _instanceProfileName
+                        {
+                            Name = _instanceProfileName
                         },
                     KeyName = _keyPairName,
                     UserData = System.Convert.ToBase64String(plainTextBytes)
@@ -394,7 +394,7 @@ public class AutoScalerWrapper
         {
             subnets.Add(subnet);
         }
-        
+
         return subnets;
     }
     // snippet-end:[ResilientService.dotnetv3.Ec2.DescribeSubnets]
@@ -437,7 +437,8 @@ public class AutoScalerWrapper
             await _amazonIam.RemoveRoleFromInstanceProfileAsync(
                 new RemoveRoleFromInstanceProfileRequest()
                 {
-                    InstanceProfileName = profileName, RoleName = roleName
+                    InstanceProfileName = profileName,
+                    RoleName = roleName
                 });
             await _amazonIam.DeleteInstanceProfileAsync(
                 new DeleteInstanceProfileRequest() { InstanceProfileName = profileName });
@@ -448,7 +449,8 @@ public class AutoScalerWrapper
                 await _amazonIam.DetachRolePolicyAsync(
                     new DetachRolePolicyRequest()
                     {
-                        RoleName = roleName, PolicyArn = policy.PolicyArn
+                        RoleName = roleName,
+                        PolicyArn = policy.PolicyArn
                     });
                 // Delete the custom policies only.
                 if (!policy.PolicyArn.StartsWith("arn:aws:iam::aws"))
@@ -531,39 +533,39 @@ public class AutoScalerWrapper
                         Name = credsProfileName
                     }
                 });
-            // Allow time before resetting.
-            Thread.Sleep(25000);
-            var instanceReady = false;
-            var retries = 5;
-            while (retries-- > 0 && !instanceReady)
-            {
-                await _amazonEc2.RebootInstancesAsync(
-                    new RebootInstancesRequest(new List<string>() { instanceId }));
-                Thread.Sleep(10000);
+        // Allow time before resetting.
+        Thread.Sleep(25000);
+        var instanceReady = false;
+        var retries = 5;
+        while (retries-- > 0 && !instanceReady)
+        {
+            await _amazonEc2.RebootInstancesAsync(
+                new RebootInstancesRequest(new List<string>() { instanceId }));
+            Thread.Sleep(10000);
 
-                var instancesPaginator = _amazonSsm.Paginators.DescribeInstanceInformation(
-                    new DescribeInstanceInformationRequest());
-                // Get the entire list using the paginator.
-                await foreach (var instance in instancesPaginator.InstanceInformationList)
+            var instancesPaginator = _amazonSsm.Paginators.DescribeInstanceInformation(
+                new DescribeInstanceInformationRequest());
+            // Get the entire list using the paginator.
+            await foreach (var instance in instancesPaginator.InstanceInformationList)
+            {
+                instanceReady = instance.InstanceId == instanceId;
+                if (instanceReady)
                 {
-                    instanceReady = instance.InstanceId == instanceId;
-                    if (instanceReady)
-                    {
-                        break;
-                    }
+                    break;
                 }
             }
-            Console.WriteLine($"Sending restart command to instance {instanceId}");
-            await _amazonSsm.SendCommandAsync(
-                new SendCommandRequest()
+        }
+        Console.WriteLine($"Sending restart command to instance {instanceId}");
+        await _amazonSsm.SendCommandAsync(
+            new SendCommandRequest()
+            {
+                InstanceIds = new List<string>() { instanceId },
+                DocumentName = "AWS-RunShellScript",
+                Parameters = new Dictionary<string, List<string>>()
                 {
-                    InstanceIds = new List<string>() { instanceId },
-                    DocumentName = "AWS-RunShellScript",
-                    Parameters = new Dictionary<string, List<string>>()
-                    {
                         {"commands", new List<string>() { "cd / && sudo python3 server.py 80" }}
-                    }
-                });
+                }
+            });
         Console.WriteLine($"Restarted the web server on instance {instanceId}");
     }
     // snippet-end:[ResilientService.dotnetv3.Ec2.ReplaceInstanceProfile]
@@ -585,7 +587,8 @@ public class AutoScalerWrapper
                 await _amazonAutoScaling.TerminateInstanceInAutoScalingGroupAsync(
                     new TerminateInstanceInAutoScalingGroupRequest()
                     {
-                        InstanceId = instanceId, ShouldDecrementDesiredCapacity = false
+                        InstanceId = instanceId,
+                        ShouldDecrementDesiredCapacity = false
                     });
                 stopping = true;
             }

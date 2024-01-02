@@ -1,8 +1,6 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. 
 // SPDX-License-Identifier:  Apache-2.0
 
-using System.Text.Json.Nodes;
-using System.Xml;
 using Amazon.ElasticLoadBalancingV2;
 using Amazon.ElasticLoadBalancingV2.Model;
 using Microsoft.Extensions.Configuration;
@@ -20,7 +18,7 @@ public class ElasticLoadBalancerWrapper
     private string? _endpoint = null;
     private readonly string _targetGroupName = "";
     private readonly string _loadBalancerName = "";
-    HttpClient _httpClient = new ();
+    HttpClient _httpClient = new();
 
     public string TargetGroupName => _targetGroupName;
     public string LoadBalancerName => _loadBalancerName;

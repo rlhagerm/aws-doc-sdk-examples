@@ -58,7 +58,7 @@ public class SmParameterWrapper
     public async Task PutParameterByName(string name, string value)
     {
         await _amazonSimpleSystemsManagement.PutParameterAsync(
-            new PutParameterRequest() { Name = name, Value = value, Overwrite = true});
+            new PutParameterRequest() { Name = name, Value = value, Overwrite = true });
     }
 }
 // snippet-end:[ResilientService.dotnetv3.SmParameterWrapper]

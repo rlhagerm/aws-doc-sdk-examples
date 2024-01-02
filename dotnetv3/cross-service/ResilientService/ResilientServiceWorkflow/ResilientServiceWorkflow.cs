@@ -147,7 +147,7 @@ public static class ResilientServiceWorkflow
         var recommendationsPath = Path.Join(_configuration["resourcePath"],
             "recommendations_objects.json");
         Console.WriteLine($"Creating and populating a DynamoDB table named {databaseTableName}.");
-         await _recommendations.CreateDatabaseWithName(databaseTableName);
+        await _recommendations.CreateDatabaseWithName(databaseTableName);
         await _recommendations.PopulateDatabase(databaseTableName, recommendationsPath);
         Console.WriteLine(new string('-', 80));
 
@@ -209,7 +209,7 @@ public static class ResilientServiceWorkflow
         if (!loadBalancerAccess)
         {
             Console.WriteLine("\nCouldn't connect to the load balancer, verifying that the port is open...");
-            
+
             var ipString = await _httpClient.GetStringAsync("https://checkip.amazonaws.com");
             ipString = ipString.Trim();
 
@@ -247,7 +247,8 @@ public static class ResilientServiceWorkflow
             Console.WriteLine("Your load balancer is ready. You can access it by browsing to:");
             Console.WriteLine($"\thttp://{endPoint}\n");
         }
-        else {
+        else
+        {
             Console.WriteLine(
                 "\nCouldn't get a successful response from the load balancer endpoint. Troubleshoot by\n"
                 + "manually verifying that your VPC and security group are configured correctly and that\n"
@@ -543,9 +544,9 @@ public static class ResilientServiceWorkflow
         string prettifiedJson =
             System.Text.Json.JsonSerializer.Serialize(jsonDocument.RootElement, new
                 JsonSerializerOptions
-                {
-                    WriteIndented = true
-                });
+            {
+                WriteIndented = true
+            });
         return prettifiedJson;
     }
 
