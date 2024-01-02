@@ -77,6 +77,9 @@ public class ResilientServiceTests
     [Trait("Category", "Integration")]
     public async Task TestDeploy()
     {
+        // Arrange.
+        ResilientServiceWorkflow.ResourcesSetup();
+
         // Act.
         var success = await ResilientServiceWorkflow.Deploy(false);
 
@@ -93,6 +96,9 @@ public class ResilientServiceTests
     [Trait("Category", "Integration")]
     public async Task TestDemo()
     {
+        // Arrange.
+        ResilientServiceWorkflow.ResourcesSetup();
+
         // Act.
         var success = await ResilientServiceWorkflow.Demo(false);
 
@@ -109,8 +115,12 @@ public class ResilientServiceTests
     [Trait("Category", "Integration")]
     public async Task TestDestroy()
     {
+        // Arrange.
+        ResilientServiceWorkflow.ResourcesSetup();
+
         // Act.
         var success = await ResilientServiceWorkflow.DestroyResources(false);
+
         // Assert.
         Assert.True(success);
     }

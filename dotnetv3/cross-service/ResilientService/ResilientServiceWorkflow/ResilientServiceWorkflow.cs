@@ -67,6 +67,7 @@ public static class ResilientServiceWorkflow
             .Build();
 
         ServicesSetup(host);
+        ResourcesSetup();
 
         try
         {
@@ -99,6 +100,14 @@ public static class ResilientServiceWorkflow
     }
 
     /// <summary>
+    /// Setup any common resources, also used for integration testing.
+    /// </summary>
+    public static void ResourcesSetup()
+    {
+        _httpClient = new HttpClient();
+    }
+
+    /// <summary>
     /// Populate the services for use within the console application.
     /// </summary>
     /// <param name="host">The services host.</param>
@@ -109,7 +118,6 @@ public static class ResilientServiceWorkflow
         _recommendations = host.Services.GetRequiredService<Recommendations>();
         _autoScalerWrapper = host.Services.GetRequiredService<AutoScalerWrapper>();
         _smParameterWrapper = host.Services.GetRequiredService<SmParameterWrapper>();
-        _httpClient = new HttpClient();
     }
 
     /// <summary>

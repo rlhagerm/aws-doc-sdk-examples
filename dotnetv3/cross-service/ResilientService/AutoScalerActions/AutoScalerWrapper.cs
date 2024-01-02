@@ -69,15 +69,15 @@ public class AutoScalerWrapper
         _instanceType = configuration["instanceType"];
         _amiParam = configuration["amiParam"];
 
-        _launchTemplateName = prefix + "-template7";
-        _groupName = prefix + "-group7";
-        _instancePolicyName = prefix + "-pol7";
-        _instanceRoleName = prefix + "-role7";
-        _instanceProfileName = prefix + "-prof7";
-        _badCredsPolicyName = prefix + "-bc-pol7";
-        _badCredsRoleName = prefix + "-bc-role7";
-        _badCredsProfileName = prefix + "-bc-prof7";
-        _keyPairName = prefix + "-key-pair7";
+        _launchTemplateName = prefix + "-template";
+        _groupName = prefix + "-group";
+        _instancePolicyName = prefix + "-pol";
+        _instanceRoleName = prefix + "-role";
+        _instanceProfileName = prefix + "-prof";
+        _badCredsPolicyName = prefix + "-bc-pol";
+        _badCredsRoleName = prefix + "-bc-role";
+        _badCredsProfileName = prefix + "-bc-prof";
+        _keyPairName = prefix + "-key-pair";
     }
 
     // snippet-start:[ResilientService.dotnetv3.iam.CreateInstanceProfile]
