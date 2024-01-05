@@ -2,7 +2,6 @@
 // SPDX-License-Identifier:  Apache-2.0
 
 // snippet-start:[S3.dotnetv3.ListBuckets]
-
 namespace ListBucketsExample
 {
     using System;
