@@ -12,4 +12,4 @@ COPY . /dotnetv3
 
 RUN cd /dotnetv3 && dotnet build -v=q --property WarningLevel=0 /clp:ErrorsOnly --nologo
 
-CMD ["dotnet", "test", "dotnetv3", "--filter", "Category=Unit", "--verbosity=quiet", "/clp:ErrorsOnly", "--nologo"]
+CMD ["dotnet", "test", "dotnetv3", "--filter", "Category=Unit|Category=Weathertop", "--verbosity=quiet", "/clp:ErrorsOnly", "--nologo"]
