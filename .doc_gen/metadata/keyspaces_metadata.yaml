@@ -518,9 +518,6 @@ keyspaces_Scenario_GetStartedKeyspaces:
             - description: 
               snippet_tags:
                 - Keyspaces.dotnetv3.KeyspacesWrapper
-            - description:
-              snippet_tags:
-                - Keyspaces.dotnetv3.CassandraWrapper
     Kotlin:
       versions:
         - sdk_version: 1

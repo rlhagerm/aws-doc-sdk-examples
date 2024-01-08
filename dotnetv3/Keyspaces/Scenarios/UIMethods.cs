@@ -24,13 +24,10 @@ public class UiMethods
         Console.WriteLine("\t 3. Create a table to store movie data.");
         Console.WriteLine("\t 4. Display the table's schema.");
         Console.WriteLine("\t 5. List all tables in the Amazon keyspace.");
-        Console.WriteLine("\t 6. Perform some simple CRUD operations on the table.");
-        Console.WriteLine("\t 7. Update the table's schema.");
-        Console.WriteLine("\t 8. Show the new schema.");
-        Console.WriteLine("\t 9. Update some of the records in the table.");
-        Console.WriteLine("\t10. List the modified records.");
-        Console.WriteLine("\t11. Offer the user the opportunity to restore the original schema.");
-        Console.WriteLine("\t12. Delete the resources used by the demo.");
+        Console.WriteLine("\t 6. Update the table's schema.");
+        Console.WriteLine("\t 7. Show the new schema.");
+        Console.WriteLine("\t 8. Offer the user the opportunity to restore the original schema.");
+        Console.WriteLine("\t 9. Delete the resources used by the demo.");
     }
 
     /// <summary>

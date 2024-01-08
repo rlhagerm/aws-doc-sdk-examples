@@ -23,7 +23,6 @@ public class KeyspacesBasics
             .ConfigureServices((_, services) =>
             services.AddAWSService<IAmazonKeyspaces>()
             .AddTransient<KeyspacesWrapper>()
-            .AddTransient<CassandraWrapper>()
             )
             .Build();
 
@@ -116,24 +115,7 @@ public class KeyspacesBasics
 
             // Display the table's schema.
             Console.WriteLine($"\nTable {tableName} has been created in {keyspaceName}");
-            Console.WriteLine("Let's take a look at the schema.");
-            uiMethods.DisplayTitle("All columns");
-            resp.SchemaDefinition.AllColumns.ForEach(column =>
-            {
-                Console.WriteLine($"{column.Name,-40}\t{column.Type,-20}");
-            });
-
-            uiMethods.DisplayTitle("Cluster keys");
-            resp.SchemaDefinition.ClusteringKeys.ForEach(clusterKey =>
-            {
-                Console.WriteLine($"{clusterKey.Name,-40}\t{clusterKey.OrderBy,-20}");
-            });
-
-            uiMethods.DisplayTitle("Partition keys");
-            resp.SchemaDefinition.PartitionKeys.ForEach(partitionKey =>
-            {
-                Console.WriteLine($"{partitionKey.Name}");
-            });
+            GetAndPrintSchema(uiMethods, resp);
 
             uiMethods.PressEnter();
         }
@@ -142,28 +124,8 @@ public class KeyspacesBasics
             Console.WriteLine($"Error: {ex.Message}");
         }
 
-        // Access Apache Cassandra using the Cassandra drive for C#.
-        var cassandraWrapper = host.Services.GetRequiredService<CassandraWrapper>();
-        var movieFilePath = configuration["MovieFile"];
-
-        Console.WriteLine("Let's add some movies to the table we created.");
-        var inserted = await cassandraWrapper.InsertIntoMovieTable(keyspaceName, tableName, movieFilePath);
-
+        Console.WriteLine($"\nNow you can use a Cassandra plugin of your choice to access and modify data in the table.");
         uiMethods.PressEnter();
-
-        Console.WriteLine("Added the following movies to the table:");
-        var rows = await cassandraWrapper.GetMovies(keyspaceName, tableName);
-        uiMethods.DisplayTitle("All Movies");
-
-        foreach (var row in rows)
-        {
-            var title = row.GetValue<string>("title");
-            var year = row.GetValue<int>("year");
-            var plot = row.GetValue<string>("plot");
-            var release_date = row.GetValue<DateTime>("release_date");
-            Console.WriteLine($"{release_date}\t{title}\t{year}\n{plot}");
-            Console.WriteLine(uiMethods.SepBar);
-        }
 
         // Update the table schema
         uiMethods.DisplayTitle("Update table schema");
@@ -176,39 +138,8 @@ public class KeyspacesBasics
         // Now update the schema.
         var resourceArn = await keyspacesWrapper.UpdateTable(keyspaceName, tableName);
         uiMethods.PressEnter();
-
-        Console.WriteLine("Now let's mark some of the movies as watched.");
-
-        // Pick some files to mark as watched.
-        var movieToWatch = rows[2].GetValue<string>("title");
-        var watchedMovieYear = rows[2].GetValue<int>("year");
-        var changedRows = await cassandraWrapper.MarkMovieAsWatched(keyspaceName, tableName, movieToWatch, watchedMovieYear);
-
-        movieToWatch = rows[6].GetValue<string>("title");
-        watchedMovieYear = rows[6].GetValue<int>("year");
-        changedRows = await cassandraWrapper.MarkMovieAsWatched(keyspaceName, tableName, movieToWatch, watchedMovieYear);
-
-        movieToWatch = rows[9].GetValue<string>("title");
-        watchedMovieYear = rows[9].GetValue<int>("year");
-        changedRows = await cassandraWrapper.MarkMovieAsWatched(keyspaceName, tableName, movieToWatch, watchedMovieYear);
-
-        movieToWatch = rows[10].GetValue<string>("title");
-        watchedMovieYear = rows[10].GetValue<int>("year");
-        changedRows = await cassandraWrapper.MarkMovieAsWatched(keyspaceName, tableName, movieToWatch, watchedMovieYear);
-
-        movieToWatch = rows[13].GetValue<string>("title");
-        watchedMovieYear = rows[13].GetValue<int>("year");
-        changedRows = await cassandraWrapper.MarkMovieAsWatched(keyspaceName, tableName, movieToWatch, watchedMovieYear);
-
-        uiMethods.DisplayTitle("Watched movies");
-        Console.WriteLine("These movies have been marked as watched:");
-        rows = await cassandraWrapper.GetWatchedMovies(keyspaceName, tableName);
-        foreach (var row in rows)
-        {
-            var title = row.GetValue<string>("title");
-            var year = row.GetValue<int>("year");
-            Console.WriteLine($"{title,-40}\t{year,8}");
-        }
+        var updatedTable = await keyspacesWrapper.GetTable(keyspaceName, tableName); ;
+        GetAndPrintSchema(uiMethods, updatedTable);
         uiMethods.PressEnter();
 
         Console.WriteLine("We can restore the table to its previous state but that can take up to 20 minutes to complete.");
@@ -216,7 +147,7 @@ public class KeyspacesBasics
         do
         {
             Console.WriteLine("Do you want to restore the table? (y/n)");
-            answer = Console.ReadLine();
+            answer = Console.ReadLine()!;
         } while (answer.ToLower() != "y" && answer.ToLower() != "n");
 
         if (answer == "y")
@@ -264,6 +195,7 @@ public class KeyspacesBasics
             do
             {
                 var resp = await keyspacesWrapper.GetTable(keyspaceName, tableName);
+                Thread.Sleep(1000);
             } while (!wasDeleted);
         }
         catch (ResourceNotFoundException ex)
@@ -275,6 +207,33 @@ public class KeyspacesBasics
         // Delete the keyspace.
         success = await keyspacesWrapper.DeleteKeyspace(keyspaceName);
         Console.WriteLine("The keyspace has been deleted and the demo is now complete.");
+    }
+
+    /// <summary>
+    /// Print a summary of the schema using the response.
+    /// </summary>
+    /// <param name="uiMethods">A ui method utility.</param>
+    /// <param name="resp">The schema response.</param>
+    private static void GetAndPrintSchema(UiMethods uiMethods, GetTableResponse resp)
+    {
+        Console.WriteLine("Let's take a look at the schema.");
+        uiMethods.DisplayTitle("All columns");
+        resp.SchemaDefinition.AllColumns.ForEach(column =>
+        {
+            Console.WriteLine($"{column.Name,-40}\t{column.Type,-20}");
+        });
+
+        uiMethods.DisplayTitle("Cluster keys");
+        resp.SchemaDefinition.ClusteringKeys.ForEach(clusterKey =>
+        {
+            Console.WriteLine($"{clusterKey.Name,-40}\t{clusterKey.OrderBy,-20}");
+        });
+
+        uiMethods.DisplayTitle("Partition keys");
+        resp.SchemaDefinition.PartitionKeys.ForEach(partitionKey =>
+        {
+            Console.WriteLine($"{partitionKey.Name}");
+        });
     }
 }
 

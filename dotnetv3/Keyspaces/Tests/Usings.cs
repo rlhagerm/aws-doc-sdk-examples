@@ -4,7 +4,6 @@
 global using Amazon.Keyspaces;
 global using Amazon.Keyspaces.Model;
 global using KeyspacesActions;
-global using KeyspacesScenario;
 global using Microsoft.Extensions.Configuration;
 global using Xunit;
 global using Xunit.Extensions.Ordering;
