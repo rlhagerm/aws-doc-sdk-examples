@@ -281,7 +281,20 @@ namespace AutoScalingTests
                 {
                     foreach (Amazon.AutoScaling.Model.Instance instance in group.Instances)
                     {
-                        var success = await _autoScalingWrapper.TerminateInstanceInAutoScalingGroupAsync(instance.InstanceId);
+                        var retries = 3;
+                        var success = false;
+                        while (retries > 0 && !success)
+                            try
+                            {
+                                success =
+                                    await _autoScalingWrapper
+                                        .TerminateInstanceInAutoScalingGroupAsync(
+                                            instance.InstanceId);
+                            }
+                            catch (ScalingActivityInProgressException)
+                            {
+                                retries--;
+                            }
                         Assert.True(success, "Could not terminate the instance.");
                     }
                 }
