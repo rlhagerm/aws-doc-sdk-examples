@@ -141,6 +141,7 @@ language = {
                 "config-service": "python/example_code/config",
                 "device-farm": "python/example_code/devicefarm",
                 "elastic-load-balancing-v2": "python/example_code/elastic-load-balancing",
+                "secrets-manager": "python/example_code/secretsmanager",
             },
         }
     },
@@ -163,6 +164,10 @@ language = {
             "base_folder": "sap-abap",
             "service_folder": 'sap-abap/services/{{service["name"]}}',
             "sdk_api_ref": 'https://docs.aws.amazon.com/sdk-for-sap-abap/v1/api/latest/{{service["name"]}}/index.html',
+            "service_folder_overrides": {
+                "bedrock-runtime": "sap-abap/services/bdr",
+                "dynamodb": "sap-abap/services/dyn",
+            },
         }
     },
     "Swift": {
