@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1
 FROM mcr.microsoft.com/dotnet/sdk:6.0
 
-# Enable the .NET 5.0 SDK if running 5.0 examples:
-COPY --from=mcr.microsoft.com/dotnet/sdk:5.0 /usr/share/dotnet/sdk /usr/share/dotnet/sdk
-COPY --from=mcr.microsoft.com/dotnet/sdk:5.0 /usr/share/dotnet/shared /usr/share/dotnet/shared
+# Add the dotnet 8 runtime
+COPY --from=mcr.microsoft.com/dotnet/sdk:8.0 /usr/share/dotnet/sdk /usr/share/dotnet/sdk
+COPY --from=mcr.microsoft.com/dotnet/sdk:8.0 /usr/share/dotnet/shared /usr/share/dotnet/shared
 
 # Copy the dotnetv3 folder and run unit tests from the top level solution.
 # Or navigate to a service folder or a scenario folder,

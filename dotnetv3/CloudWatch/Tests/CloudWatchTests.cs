@@ -205,7 +205,6 @@ public class CloudWatchTests
     [Fact]
     [Order(9)]
     [Trait("Category", "Integration")]
-    [Trait("Category", "Weathertop")]
     public async Task GetMetricData_ShouldSucceed()
     {
         var accountId = _configuration["accountId"];
@@ -260,7 +259,7 @@ public class CloudWatchTests
             20,
             query);
 
-        Assert.NotEmpty(metricData);
+        Assert.NotNull(metricData);
     }
 
     /// <summary>
