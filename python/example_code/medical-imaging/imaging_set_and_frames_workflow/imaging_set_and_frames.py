@@ -26,7 +26,7 @@ from threading import Thread
 from medicalimaging import MedicalImagingWrapper
 
 # Add relative path to include demo_tools in this code example without need for setup.
-sys.path.append("../..")
+sys.path.append("../../..")
 from demo_tools import demo_func
 import demo_tools.question as q
 
@@ -54,17 +54,21 @@ IMPORT_JOB_MANIFEST_FILE_NAME = "job-output-manifest.json"
 
 
 class MedicalImagingWorkflowScenario:
+    input_bucket_name = ""
+    output_bucket_name = ""
+    role_arn = ""
+    data_store_id = ""
     def __init__(self, medical_imaging_wrapper, s3_client):
         self.medical_imaging_wrapper = medical_imaging_wrapper
         self.s3_client = s3_client
 
-    def run_scenario(self, input_bucket_name, output_bucket_name, role_arn):
+    def run_scenario(self):
 
         print("-" * 88)
         print("Welcome to the AWS HealthImaging working with image sets and frames workflow.")
         print("-" * 88)
 
-        print("""
+        print("""\
         This workflow will import DICOM files into a HealthImaging data store.
         DICOM® — Digital Imaging and Communications in Medicine — is the international
         standard for medical images and related information.
@@ -91,41 +95,39 @@ class MedicalImagingWorkflowScenario:
 
         First one of the DICOM folders in the IDC collection must be copied to your
         input S3 bucket.
-        
         """)
 
         print(f"You have the choice of one of the following {len(IDC_IMAGE_CHOICES)} folders to copy.")
 
         for index, idcChoice in enumerate(IDC_IMAGE_CHOICES):
-            print(f"\t{index + 1}. {idcChoice.mDescription}")
+            print(f"\t{index + 1}. {idcChoice['Description']}")
         choice = q.ask(
             "Which DICOM files do you want to import? ",
             q.is_int,
             q.in_range(1, len(IDC_IMAGE_CHOICES) + 1),
         )
 
-        from_directory = IDC_IMAGE_CHOICES[choice - 1].mDirectory
+        from_directory = IDC_IMAGE_CHOICES[choice - 1]["Directory"]
         input_directory = "input"
+        output_directory = "output"
 
-        print(f"The files in the directory {from_directory} in the bucket {IDC_S3_BUCKET_NAME} will be copied ")
+        print(f"\nThe files in the directory {from_directory} in the bucket {IDC_S3_BUCKET_NAME} will be copied ")
         print(f"to the folder {input_directory}/{from_directory}in the bucket {input_bucket_name}.")
         q.ask("Press Enter to start the copy.")
-        self.copy_images(from_directory, input_directory)
+        self.copy_images(IDC_S3_BUCKET_NAME, from_directory, input_bucket_name, input_directory)
 
         print(f"\nNow the DICOM images will be imported into the datastore with ID {data_store_id}.")
         import_job_id = self.medical_imaging_wrapper.start_dicom_import_job(
-            data_store_id, input_bucket_name, input_directory, output_bucket_name, input_directory, role_arn)
+            data_store_id, input_bucket_name, input_directory, output_bucket_name, output_directory, role_arn)
         print(f"\nThe DICOM files were successfully imported. The import job ID is {data_store_id}.")
 
-        print(f"""
-        Information about the import job, including the IDs of the created image sets,
+        print(f"""Information about the import job, including the IDs of the created image sets,
         is located in a file named {IMPORT_JOB_MANIFEST_FILE_NAME} 
         This file is located in a folder specified by the import job's 'outputS3Uri'.
         The 'outputS3Uri' is retrieved by calling the 'GetDICOMImportJob' action.
         """)
         print("-" * 88)
-        print(f"""
-        The image set IDs will be retrieved by downloading '{IMPORT_JOB_MANIFEST_FILE_NAME}' 
+        print(f"""The image set IDs will be retrieved by downloading '{IMPORT_JOB_MANIFEST_FILE_NAME}' 
         file from the output S3 bucket.
         """)
         q.ask("Press Enter to continue.")
@@ -136,8 +138,7 @@ class MedicalImagingWorkflowScenario:
         for image_set in image_sets:
             print("Image set:", image_set)
 
-        print("""
-        If you would like information about how HealthImaging organizes image sets,
+        print("""If you would like information about how HealthImaging organizes image sets,
         go to the following link.
         https://docs.aws.amazon.com/healthimaging/latest/devguide/understanding-image-sets.html
         """)
@@ -145,7 +146,7 @@ class MedicalImagingWorkflowScenario:
         q.ask("Press Enter to continue.")
         print("-" * 88)
 
-        print("""
+        print("""\
         Next this workflow will download all the image frames created in this import job. 
         The IDs of all the image frames in an image set are stored in the image set metadata.
         The image set metadata will be downloaded and parsed for the image frame IDs.
@@ -165,8 +166,7 @@ class MedicalImagingWorkflowScenario:
         print(f"{all_image_frame_ids.len()} image frames were created by this import job.")
         print("-" * 88)
 
-        print("""
-        The image frames are encoded in the HTJ2K format. This example will convert
+        print("""The image frames are encoded in the HTJ2K format. This example will convert
         the image frames to bitmaps. The decoded images will be verified using 
         a CRC32 checksum retrieved from the image set metadata.
         The OpenJPEG open-source library will be used for the conversion.  
@@ -180,8 +180,7 @@ class MedicalImagingWorkflowScenario:
             data_store_id, all_image_frame_ids, out_dir)
 
         if result:
-            print(f"""
-                   The image files were successfully decoded and validated.
+            print(f"""The image files were successfully decoded and validated.
                    The HTJ2K image files are located in the directory
                    {out_dir} in the working directory
                    The OpenJPEG open-source library will be used for the conversion.  
@@ -207,7 +206,7 @@ class MedicalImagingWorkflowScenario:
             # TODO: clean everything up.
             print("Removed files created by the workflow.")
 
-    def copy_single_object(self, key, source_bucket, target_bucket):
+    def copy_single_object(self, key, source_bucket, target_bucket, target_directory):
         """
         Copies a single object from a source to a target bucket.
 
@@ -215,29 +214,38 @@ class MedicalImagingWorkflowScenario:
         :param source_bucket: The source bucket to copy from.
         :param target_bucket: The target bucket to copy to.
         """
+        new_key = target_directory + "/" + key
         copy_source = {
             'Bucket': source_bucket,
             'Key': key
         }
-        self.s3_client.copy_object(CopySource=copy_source, Bucket=target_bucket, Key=key)
+        self.s3_client.copy_object(
+            CopySource=copy_source,
+            Bucket=target_bucket,
+            Key=new_key)
         print(f"\tCopying {key}.")
 
-    def copy_images(self, source_bucket, target_bucket):
+    def copy_images(self, source_bucket, source_directory, target_bucket, target_directory):
         """
         Copies the images from the source to the target bucket using multiple threads.
 
         :param source_bucket: The source bucket for the images.
+        :param source_directory: Directory within the source bucket.
         :param target_bucket: The target bucket for the images.
+        :param target_directory: Directory within the target bucket.
         """
 
         # Get list of all objects in source bucket.
-        objs = self.s3_client.list_objects_v2(Bucket=source_bucket)['Contents']
+        list_response = self.s3_client.list_objects_v2(
+            Bucket=source_bucket,
+            Prefix=source_directory)
+        objs = list_response['Contents']
         keys = [obj['Key'] for obj in objs]
 
         # Copy the objects with multiple threads.
         threads = []
         for key in keys:
-            t = Thread(target=self.copy_single_object, args=[key, source_bucket, target_bucket])
+            t = Thread(target=self.copy_single_object, args=[key, source_bucket, target_bucket, target_directory])
             threads.append(t)
             t.start()
 
@@ -246,22 +254,97 @@ class MedicalImagingWorkflowScenario:
 
         print("\tDone copying all objects.")
 
+    def deploy(self):
+        """
+        Deploys prerequisite resources used by the `usage_demo` script. The resources are
+        defined in the associated `setup.yaml` AWS CloudFormation script and are deployed
+        as a CloudFormation stack, so they can be easily managed and destroyed.
+
+        :param stack_name: The name of the CloudFormation stack.
+        :param cf_resource: A Boto3 CloudFormation resource.
+        """
+
+        cf_resource = boto3.resource("cloudformation")
+        stack_name = "doc-example-medical-imaging-set-stack"
+        account_id = boto3.client("sts").get_caller_identity()["Account"]
+        test_data_store = "mytestdatastore"
+        # stack = cf_resource.Stack("doc-example-medical-imaging-set-stack")
+        with open("cfn_template.yaml") as setup_file:
+            setup_template = setup_file.read()
+        print(f"Creating {stack_name}.")
+        stack = cf_resource.create_stack(
+            StackName=stack_name,
+            TemplateBody=setup_template,
+            Capabilities=["CAPABILITY_NAMED_IAM"],
+            Parameters=[
+                {
+                    "ParameterKey": "datastoreName",
+                    "ParameterValue": test_data_store,
+                },
+                {
+                    "ParameterKey": "userAccountID",
+                    "ParameterValue": account_id,
+                }
+            ]
+
+        )
+        print("Waiting for stack to deploy. This typically takes a minute or two.")
+        waiter = cf_resource.meta.client.get_waiter("stack_create_complete")
+        waiter.wait(StackName=stack.name)
+        stack.load()
+        print(f"Stack status: {stack.stack_status}")
+        print("Created resources:")
+        for resource in stack.resource_summaries.all():
+            print(f"\t{resource.resource_type}, {resource.physical_resource_id}")
+        print("Outputs:")
+        for output in stack.outputs:
+            print(f"\t{output['OutputKey']}: {output['OutputValue']}")
+
+        self.input_bucket_name = stack.outputs["InputBucketName"]["OutputValue"]
+        self.output_bucket_name = stack.outputs["OutputBucketName"]["OutputValue"]
+        self.role_arn = stack.outputs["RoleArn"]["OutputValue"]
+        self.data_store_id = stack.outputs["DatastoreID"]["OutputValue"]
+
+    def destroy(stack, cf_resource, s3_resource):
+        """
+        Destroys the resources managed by the CloudFormation stack, and the CloudFormation
+        stack itself.
+
+        :param stack: The CloudFormation stack that manages the example resources.
+        :param cf_resource: A Boto3 CloudFormation resource.
+        :param s3_resource: A Boto3 S3 resource.
+        """
+        bucket_name = None
+        for oput in stack.outputs:
+            if oput["OutputKey"] == "BucketName":
+                bucket_name = oput["OutputValue"]
+        if bucket_name is not None:
+            print(f"Deleting all objects in bucket {bucket_name}.")
+            s3_resource.Bucket(bucket_name).objects.delete()
+        print(f"Deleting {stack.name}.")
+        stack.delete()
+        print("Waiting for stack removal.")
+        waiter = cf_resource.meta.client.get_waiter("stack_delete_complete")
+        waiter.wait(StackName=stack.name)
+        print("Stack delete complete.")
+
 
 if __name__ == "__main__":
 
     # Replace these values with your own, after deploying the AWS Cloud Formation resource stack.
-    source_s3_uri = "s3://medical-imaging-dicom-input/dicom_input/"
-    dest_s3_uri = "s3://medical-imaging-output/job_output/"
     data_access_role_arn = "arn:aws:iam::565846806325:role/healthimagingworkflow-docexampleimportrole77AD6B59-dkOpwZO4GH8o"
-    data_store_id = "e964880c2ca04f51843997e9d4b24ed1"
-    bucket_name = "healthimagingworkflow-docexampledicombucket120080d-yrmpiyrzv5pi"
-    input_bucket = "medical-imaging-dicom-input"
-    output_bucket = "medical-imaging-output"
+    data_store = "e964880c2ca04f51843997e9d4b24ed1"
+    input_bucket = "healthimagingworkflow-docexampledicombucket120080d-yrmpiyrzv5pi"
+    output_bucket = "health-imaging-output-bucket"
 
     try:
         s3 = boto3.client('s3')
+        #cf_resource = boto3.resource("cloudformation")
+        #stack = cf_resource.Stack("doc-example-stepfunctions-messages-stack")
+
         scenario = MedicalImagingWorkflowScenario(MedicalImagingWrapper.from_client(), s3)
-        scenario.run_scenario(input_bucket, output_bucket, data_access_role_arn, data_store_id)
+        scenario.deploy()
+        scenario.run_scenario()
     except Exception:
         logging.exception("Something went wrong with the workflow.")
 # snippet-end:[python.example_code.medical-imaging.workflow]
