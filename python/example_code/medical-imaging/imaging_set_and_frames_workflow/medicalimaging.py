@@ -266,9 +266,48 @@ class MedicalImagingWrapper:
             )
             raise
 
-        # snippet-end:[python.example_code.medical-imaging.DeleteDatastore]
+    # snippet-end:[python.example_code.medical-imaging.DeleteDatastore]
 
-        # snippet-start:[python.example_code.medical-imaging.StartDICOMImportJob]
+    # snippet-start:[python.example_code.medical-imaging.GetImageSetMetadata]
+    def get_image_set_metadata(
+        self, metadata_file, datastore_id, image_set_id, version_id=None
+    ):
+        """
+        Get the metadata of an image set.
+
+        :param metadata_file: The file to store the JSON gzipped metadata.
+        :param datastore_id: The ID of the data store.
+        :param image_set_id: The ID of the image set.
+        :param version_id: The version of the image set.
+        """
+        try:
+            if version_id:
+                image_set_metadata = self.medical_imaging_client.get_image_set_metadata(
+                    imageSetId=image_set_id,
+                    datastoreId=datastore_id,
+                    versionId=version_id,
+                )
+            else:
+                image_set_metadata = self.medical_imaging_client.get_image_set_metadata(
+                    imageSetId=image_set_id, datastoreId=datastore_id
+                )
+            print(image_set_metadata)
+            with open(metadata_file, "wb") as f:
+                for chunk in image_set_metadata["imageSetMetadataBlob"].iter_chunks():
+                    if chunk:
+                        f.write(chunk)
+
+        except ClientError as err:
+            logger.error(
+                "Couldn't get image metadata. Here's why: %s: %s",
+                err.response["Error"]["Code"],
+                err.response["Error"]["Message"],
+            )
+            raise
+
+    # snippet-end:[python.example_code.medical-imaging.GetImageSetMetadata]
+
+    # snippet-start:[python.example_code.medical-imaging.StartDICOMImportJob]
 
     def start_dicom_import_job(self, data_store_id, input_bucket_name, input_directory,
                                output_bucket_name, output_directory, role_arn):
@@ -286,20 +325,22 @@ class MedicalImagingWrapper:
 
         input_uri = f"s3://{input_bucket_name}/{input_directory}/"
         output_uri = f"s3://{output_bucket_name}/{output_directory}/"
-
-        response = self.medical_imaging_client.start_dicom_import_job(
-            datastoreId=data_store_id,
-            dataAccessRoleArn=role_arn,
-            inputS3Uri=input_uri,
-            outputS3Uri=output_uri
-        )
-
-        if 'JobId' in response:
-            import_job_id = response['JobId']
-            return import_job_id
+        try:
+            job = self.medical_imaging_client.start_dicom_import_job(
+                datastoreId=data_store_id,
+                dataAccessRoleArn=role_arn,
+                inputS3Uri=input_uri,
+                outputS3Uri=output_uri
+            )
+        except ClientError as err:
+            logger.error(
+                "Couldn't start DICOM import job. Here's why: %s: %s",
+                err.response["Error"]["Code"],
+                err.response["Error"]["Message"],
+            )
+            raise
         else:
-            print(f"Failed to start DICOM import job because {response['Error']['Message']}")
-            return False
+            return job["jobId"]
 
     def start_dicom_import_job_old(
             self, job_name, datastore_id, role_arn, input_s3_uri, output_s3_uri
@@ -428,12 +469,13 @@ class MedicalImagingWrapper:
 
         :param datastore_id: The ID of the data store.
         :param image_set_id: The ID of the image set.
-        :param out_directory: The optional version of the image set.
+        :param out_directory: The directory to save the file.
         :return: The image frames.
         """
         image_frames = []
         file_name = os.path.join(out_directory, f"{image_set_id}_metadata.json.gzip")
-        if self.get_image_set_metadata(datastore_id, image_set_id, "", file_name):
+        image_metadata_file_name = "metadata.json.gzip"
+        if self.get_image_set_metadata(file_name, datastore_id, image_set_id):
             try:
                 with gzip.open(file_name, 'r') as f:
                     metadata_gzip = f.read()
