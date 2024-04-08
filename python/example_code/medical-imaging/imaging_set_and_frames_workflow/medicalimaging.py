@@ -11,6 +11,9 @@ import numpy as np
 import zlib
 import pydicom
 import dicom2jpg
+import json
+import jmespath
+import time
 
 
 from botocore.exceptions import ClientError
@@ -57,12 +60,12 @@ class MedicalImagingWrapper:
 
         # Test with a single file
         image_frame = image_frames[0]
-        image_file_path = f"{out_directory}/image_{image_frame['ImageSetId']}.jpg"
+        image_file_path = f"{out_directory}/image_{image_frame['imageSetId']}.jpg"
         result = self.get_pixel_data(
             image_file_path,
             data_store_id,
-            image_frame['ImageSetId'],
-            image_frame['ImageFrameId'])
+            image_frame['imageSetId'],
+            image_frame['imageFrameId'])
 
         return result
         """
@@ -280,6 +283,7 @@ class MedicalImagingWrapper:
         :param image_set_id: The ID of the image set.
         :param version_id: The version of the image set.
         """
+
         try:
             if version_id:
                 image_set_metadata = self.medical_imaging_client.get_image_set_metadata(
@@ -291,7 +295,6 @@ class MedicalImagingWrapper:
                 image_set_metadata = self.medical_imaging_client.get_image_set_metadata(
                     imageSetId=image_set_id, datastoreId=datastore_id
                 )
-            print(image_set_metadata)
             with open(metadata_file, "wb") as f:
                 for chunk in image_set_metadata["imageSetMetadataBlob"].iter_chunks():
                     if chunk:
@@ -430,6 +433,43 @@ class MedicalImagingWrapper:
 
         # snippet-end:[python.example_code.medical-imaging.ListDICOMImportJobs]
 
+    def get_image_sets_for_dicom_import_job(self, datastore_id, import_job_id):
+        """
+        Retrieves the image sets created for an import job.
+
+        :param datastore_id: The HealthImaging data store ID
+        :param import_job_id: The import job ID
+        :return: List of image set IDs
+        """
+
+        import_job = self.medical_imaging_client.get_dicom_import_job(
+            datastoreId=datastore_id,
+            jobId=import_job_id
+        )
+
+        output_uri = import_job['jobProperties']['outputS3Uri']
+
+        s3 = boto3.client('s3')
+        bucket = output_uri.split('/')[2]
+        key = '/'.join(output_uri.split('/')[3:])
+
+        # Try to get the manifest
+        retries = 3
+        while retries > 0:
+            try:
+                obj = s3.get_object(Bucket=bucket, Key=key + 'job-output-manifest.json')
+                body = obj['Body']
+                break
+            except ClientError as error:
+                retries = retries - 1
+                time.sleep(3)
+
+        data = json.load(body)
+        expression = jmespath.compile("jobSummary.imageSetsSummary[].imageSetId")
+        image_sets = expression.search(data)
+
+        return image_sets
+
         # snippet-start:[python.example_code.medical-imaging.SearchImageSets]
 
     def search_image_sets(self, datastore_id, search_filter):
@@ -474,40 +514,50 @@ class MedicalImagingWrapper:
         """
         image_frames = []
         file_name = os.path.join(out_directory, f"{image_set_id}_metadata.json.gzip")
-        image_metadata_file_name = "metadata.json.gzip"
-        if self.get_image_set_metadata(file_name, datastore_id, image_set_id):
-            try:
-                with gzip.open(file_name, 'r') as f:
-                    metadata_gzip = f.read()
-                metadata_json = gzip.decompress(metadata_gzip).decode('utf-8')
-                doc = json.loads(metadata_json)
-                instances = jmespath.search("Study.Series.*.Instances[].*[]", doc)
-                for instance in instances:
-                    rescale_slope = jmespath.search("DICOM.RescaleSlope", instance)
-                    rescale_intercept = jmespath.search("DICOM.RescaleIntercept", instance)
-                    image_frames_json = jmespath.search("ImageFrames[][]", instance)
-                    for image_frame in image_frames_json:
-                        image_frame_info = ImageFrameInfo()
-                        image_frame_info.image_set_id = image_set_id
-                        image_frame_info.image_frame_id = image_frame["ID"]
-                        image_frame_info.rescale_intercept = rescale_intercept
-                        image_frame_info.rescale_slope = rescale_slope
-                        image_frame_info.min_pixel_value = image_frame["MinPixelValue"]
-                        image_frame_info.max_pixel_value = image_frame["MaxPixelValue"]
-                        checksum_json = jmespath.search(
-                            "max_by(PixelDataChecksumFromBaseToFullResolution, &Width).Checksum", image_frame)
-                        image_frame_info.full_resolution_checksum = checksum_json
-                        image_frames.append(image_frame_info)
-                return image_frames
-            except ClientError as err:
-                logger.error(
-                    "Couldn't get image frames for image set. Here's why: %s: %s",
-                    err.response["Error"]["Code"],
-                    err.response["Error"]["Message"],
-                )
-                raise
-        else:
+        file_name = file_name.replace("/", "\\\\")
+        self.get_image_set_metadata(file_name, datastore_id, image_set_id)
+        try:
+            with gzip.open(file_name, "rb") as f_in:
+                doc = json.load(f_in)
+            # with gzip.open(file_name, 'r') as f:
+            #    metadata_gzip = f.read()
+            # metadata_json = gzip.decompress(metadata_gzip).decode('utf-8')
+            # doc = json.loads(metadata_json)
+            instances = jmespath.search("Study.Series.*.Instances[].*[]", doc)
+            for instance in instances:
+                rescale_slope = jmespath.search("DICOM.RescaleSlope", instance)
+                rescale_intercept = jmespath.search("DICOM.RescaleIntercept", instance)
+                image_frames_json = jmespath.search("ImageFrames[][]", instance)
+                for image_frame in image_frames_json:
+                    checksum_json = jmespath.search(
+                        "max_by(PixelDataChecksumFromBaseToFullResolution, &Width)", image_frame)
+                    image_frame_info = {
+                        "imageSetId": image_set_id,
+                        "imageFrameId": image_frame["ID"],
+                        "rescaleIntercept": rescale_intercept,
+                        "rescaleSlope": rescale_slope,
+                        "minPixelValue": image_frame["MinPixelValue"],
+                        "maxPixelValue": image_frame["MaxPixelValue"],
+                        "fullResolutionChecksum": checksum_json["Checksum"]
+                    }
+                    # image_frame_info.image_set_id = image_set_id
+                    # image_frame_info.image_frame_id = image_frame["ID"]
+                    # image_frame_info.rescale_intercept = rescale_intercept
+                    # image_frame_info.rescale_slope = rescale_slope
+                    # image_frame_info.min_pixel_value = image_frame["MinPixelValue"]
+                    # image_frame_info.max_pixel_value = image_frame["MaxPixelValue"]
+
+                    # image_frame_info.full_resolution_checksum = checksum_json
+                    image_frames.append(image_frame_info)
             return image_frames
+        except ClientError as err:
+            logger.error(
+                "Couldn't get image frames for image set. Here's why: %s: %s",
+                err.response["Error"]["Code"],
+                err.response["Error"]["Message"],
+            )
+            raise
+        return image_frames
 
     def get_image_set(self, datastore_id, image_set_id, version_id=None):
         """

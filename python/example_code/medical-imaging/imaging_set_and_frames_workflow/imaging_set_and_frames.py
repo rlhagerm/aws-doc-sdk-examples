@@ -127,15 +127,18 @@ class MedicalImagingWorkflowScenario:
         This file is located in a folder specified by the import job's 'outputS3Uri'.
         The 'outputS3Uri' is retrieved by calling the 'GetDICOMImportJob' action.
         """)
-        print("-" * 88)
+
         print(f"""\
         The image set IDs will be retrieved by downloading '{IMPORT_JOB_MANIFEST_FILE_NAME}' 
         file from the output S3 bucket.
         """)
         q.ask("\t\tPress Enter to continue.")
 
-        image_sets = self.medical_imaging_wrapper.get_image_frames_for_image_set(
-            self.data_store_id, import_job_id, output_directory)
+        image_sets = self.medical_imaging_wrapper.get_image_sets_for_dicom_import_job(
+            self.data_store_id, import_job_id)
+
+        # image_sets = self.medical_imaging_wrapper.get_image_frames_for_image_set(
+        #    self.data_store_id, import_job_id, output_directory)
 
         print("\t\tThe image sets created by this import job are:")
         for image_set in image_sets:
@@ -148,7 +151,6 @@ class MedicalImagingWorkflowScenario:
         """)
 
         q.ask("\t\tPress Enter to continue.")
-        print("-" * 88)
 
         print("""\
         Next this workflow will download all the image frames created in this import job. 
@@ -167,10 +169,10 @@ class MedicalImagingWorkflowScenario:
 
             all_image_frame_ids.extend(image_frames)
 
-        print(f"\t\t{all_image_frame_ids.len()} image frames were created by this import job.")
-        print("-" * 88)
+        print(f"\t\t{len(all_image_frame_ids)} image frames were created by this import job.")
 
-        print("""The image frames are encoded in the HTJ2K format. This example will convert
+        print("""\
+        The image frames are encoded in the HTJ2K format. This example will convert
         the image frames to bitmaps. The decoded images will be verified using 
         a CRC32 checksum retrieved from the image set metadata.
         The OpenJPEG open-source library will be used for the conversion.  
@@ -180,17 +182,14 @@ class MedicalImagingWorkflowScenario:
 
         q.ask("\t\tPress Enter to download and convert the images.")
 
-        result = self.medical_imaging_wrapper.download_decode_and_check_image_frames(
+        self.medical_imaging_wrapper.download_decode_and_check_image_frames(
             self.data_store_id, all_image_frame_ids, out_dir)
 
-        if result:
-            print(f"""The image files were successfully decoded and validated.
-                   The HTJ2K image files are located in the directory
-                   {out_dir} in the working directory
-                   The OpenJPEG open-source library will be used for the conversion.  
-                   The following link contains information about HTJ2K decoding libraries.
-                   https://docs.aws.amazon.com/healthimaging/latest/devguide/reference-htj2k.html
-                   """)
+        print(f"""\
+        The image files were successfully decoded and validated.
+        The HTJ2K image files are located in the directory
+        {out_dir} in the working directory of this example.
+        """)
 
         print("-" * 88)
         print("This concludes this workflow.")
@@ -201,7 +200,7 @@ class MedicalImagingWorkflowScenario:
 
     def cleanup(self):
         """
-        1. Cleans up files created by the workflow.
+        Cleans up files created by the workflow.
         """
         if q.ask(
             f"Clean up files created by the workflow? (y/n) ",
@@ -269,9 +268,9 @@ class MedicalImagingWorkflowScenario:
         """
 
         cf_resource = boto3.resource("cloudformation")
-        stack_name = "doc-example-medical-imaging-set-stack5"
+        stack_name = "doc-example-medical-imaging-set-stack2"
         account_id = boto3.client("sts").get_caller_identity()["Account"]
-        test_data_store = "mytestdatastore5"
+        test_data_store = "mytestdatastore2"
 
         with open("cfn_template.yaml") as setup_file:
             setup_template = setup_file.read()
