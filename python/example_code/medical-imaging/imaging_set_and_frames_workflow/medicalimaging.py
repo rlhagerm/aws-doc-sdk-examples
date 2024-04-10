@@ -14,6 +14,7 @@ import dicom2jpg
 import json
 import jmespath
 import time
+from pydicom import dcmread
 
 
 from botocore.exceptions import ClientError
@@ -58,120 +59,80 @@ class MedicalImagingWrapper:
         :return: True if the function succeeded; otherwise, False.
         """
 
-        # Test with a single file
+        # Test with a single file.
         image_frame = image_frames[0]
-        image_file_path = f"{out_directory}/image_{image_frame['imageSetId']}.jpg"
+
+        image_file_path = f"{out_directory}/image_{image_frame['imageSetId']}.j2k"
         result = self.get_pixel_data(
             image_file_path,
             data_store_id,
             image_frame['imageSetId'],
             image_frame['imageFrameId'])
 
-        return result
-        """
-        semaphore = concurrent.futures.Semaphore(25)
-        result = True
-        futures = []
+        self.jph_image_to_opj_bitmap(image_file_path)
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=25) as executor:
-            for image_frame in image_frames:
-                get_image_frame_request = {
-                    'DatastoreId': data_store_id,
-                    'ImageSetId': image_frame['ImageSetId'],
-                    'ImageFrameInformation': {'ImageFrameId': image_frame['ImageFrameId']}
-                }
+        # dicom2jpg.dicom2jpg(out_directory)
 
-                future = executor.submit(
-                    self._download_and_decode_image_frame,
-                    semaphore, get_image_frame_request, out_directory, image_frame)
-                futures.append(future)
-
-            for future in concurrent.futures.as_completed(futures):
-                try:
-                    res = future.result()
-                except Exception as e:
-                    logger.error(f"Error while downloading image frame: {e}")
-                    result = False
-
-        if result:
-            print(f"{len(image_frames)} image files were downloaded.")
+        # self.verify_checksum_for_image(image_file_path, image_frame["fullResolutionChecksum"])
 
         return result
+
+    def verify_checksum_for_image(self, image, crc32_checksum):
+        """
+        Verifies the checksum for an image.
+
+        :param image: The image to verify.
+        :param crc32_checksum: The checksum to match.
         """
 
-    def _download_and_decode_image_frame(
-            self,
-            semaphore,
-            get_image_frame_request,
-            out_directory: str,
-            image_frame):
-        """
-        Downloads and decodes a single image frame.
-
-        :param semaphore: A semaphore to limit concurrent operations.
-        :param get_image_frame_request: The request to get the image frame.
-        :param out_directory: The directory to save the downloaded image.
-        :param image_frame: A dict containing the image frame information.
-        :return: True if the operation succeeded; otherwise, False.
-        """
-        with semaphore:
-            try:
-                response = self.medical_imaging_client.get_image_frame(**get_image_frame_request)
-                # Decode and save the image frame here
-                output_image = self.ph_image_to_opj_bitmap(response["imageFrameBlob"])
-                ...
-            except ClientError as err:
-                logger.error(
-                    "Couldn't download image frame %s from image set %s. "
-                    "Here's why: %s: %s", image_frame['ImageFrameId'],
-                    image_frame['ImageSetId'], err.response['Error']['Code'],
-                    err.response['Error']['Message'])
-                return False
-            else:
-                return True
-
-    def verifyChecksumForImage(self, image, crc32Checksum):
         channels = image.numcomps
         result = False
         if channels > 0:
-            # Assume precision is same for all channels
+            # Assume precision is same for all channels.
             precision = image.comps[0].prec
-            signedData = image.comps[0].sgnd
-            bytes = (precision + 7) // 8
+            signed_data = image.comps[0].sgnd
+            img_bytes = (precision + 7) // 8
 
-            if signedData:
-                if bytes == 1:
-                    result = self.verifyChecksumForImageForType(image, crc32Checksum, np.int8)
-                elif bytes == 2:
-                    result = self.verifyChecksumForImageForType(image, crc32Checksum, np.int16)
-                elif bytes == 4:
-                    result = self.verifyChecksumForImageForType(image, crc32Checksum, np.int32)
+            if signed_data:
+                if img_bytes == 1:
+                    result = self.verifyChecksumForImageForType(image, crc32_checksum, np.int8)
+                elif img_bytes == 2:
+                    result = self.verifyChecksumForImageForType(image, crc32_checksum, np.int16)
+                elif img_bytes == 4:
+                    result = self.verifyChecksumForImageForType(image, crc32_checksum, np.int32)
                 else:
-                    print(f"Unsupported signed data type with {bytes} bytes")
+                    print(f"Unsupported signed data type with {img_bytes} bytes.")
 
             else:
-                if bytes == 1:
-                    result = self.verifyChecksumForImageForType(image, crc32Checksum, np.uint8)
-                elif bytes == 2:
-                    result = self.verifyChecksumForImageForType(image, crc32Checksum, np.uint16)
-                elif bytes == 4:
-                    result = self.erifyChecksumForImageForType(image, crc32Checksum, np.uint32)
+                if img_bytes == 1:
+                    result = self.verifyChecksumForImageForType(image, crc32_checksum, np.uint8)
+                elif img_bytes == 2:
+                    result = self.verifyChecksumForImageForType(image, crc32_checksum, np.uint16)
+                elif img_bytes == 4:
+                    result = self.erifyChecksumForImageForType(image, crc32_checksum, np.uint32)
                 else:
-                    print(f"Unsupported unsigned data type with {bytes} bytes.")
+                    print(f"Unsupported unsigned data type with {img_bytes} bytes.")
         else:
             print("No channels in image.")
         return result;
 
     @staticmethod
-    def verify_checksum_for_image_for_type(self, image, crc32_checksum, dtype):
+    def verify_checksum_for_image_for_type(image, crc32_checksum, dtype):
+        """
+        Verifies the checksum for an image of a specific type.
+
+        :param image: The image to verify.
+        :param crc32_checksum: The checksum to match.
+        :param dtype: The data type.
+        """
         width = image.x1 - image.x0
         height = image.y1 - image.y0
         num_of_channels = image.numcomps
 
-        # Buffer for interleaved bitmap
+        # Buffer for interleaved bitmap.
         buffer = np.zeros((width * height * num_of_channels,), dtype)
 
-        # Convert planar bitmap to interleaved bitmap
+        # Convert planar bitmap to interleaved bitmap.
         for channel in range(num_of_channels):
             for row in range(height):
                 from_row_start = row // image.comps[channel].dy * width // image.comps[channel].dx
@@ -196,10 +157,18 @@ class MedicalImagingWrapper:
     @staticmethod
     def jph_image_to_opj_bitmap(jph_file):
         """
-        Decode
-        :param jph_file:
+        Decode the image to a jpg using a DICOM library.
+        :param jph_file: The file to decode.
         """
-        dicom2jpg.dicom2jpg(jph_file)
+        from openjpeg import decode
+        import cv2
+
+        with open(jph_file, 'rb') as f:
+            # Returns a numpy array
+            arr = decode(f)
+        cv2.imwrite("filename.bmp", arr)
+
+        # dicom2jpg.dicom2jpg(jph_file)
 
     # snippet-start:[python.example_code.medical-imaging.CreateDatastore]
     def create_datastore(self, name):

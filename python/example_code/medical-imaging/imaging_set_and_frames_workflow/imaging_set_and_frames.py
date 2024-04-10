@@ -32,6 +32,7 @@ import demo_tools.question as q
 
 logger = logging.getLogger(__name__)
 
+'''
 TEMPLATES_PATH = "templates"
 
 DATASTORE_PARAMETER = "datastoreName"
@@ -40,6 +41,7 @@ ROLE_ARN_OUTPUT = "RoleArn"
 BUCKET_NAME_OUTPUT = "InputBucketName"
 OUTPUT_BUCKET_NAME_OUTPUT = "OutputBucketName"
 DATASTORE_ID_OUTPUT = "DatastoreID"
+'''
 
 IDC_S3_BUCKET_NAME = "idc-open-data"
 
@@ -58,9 +60,11 @@ class MedicalImagingWorkflowScenario:
     output_bucket_name = ""
     role_arn = ""
     data_store_id = ""
-    def __init__(self, medical_imaging_wrapper, s3_client):
+
+    def __init__(self, medical_imaging_wrapper, s3_client, cf_resource):
         self.medical_imaging_wrapper = medical_imaging_wrapper
         self.s3_client = s3_client
+        self.cf_resource = cf_resource
 
     def run_scenario(self):
 
@@ -83,9 +87,12 @@ class MedicalImagingWorkflowScenario:
         an AWS Identity and Access Management (IAM) role for importing the DICOM files into
         the data store.
         
-        These resources can be created separately using the provided AWS CloudFormation stack:
-        todo: provide link.
-        
+        These resources can be created separately using the provided AWS CloudFormation stack
+        which will be deployed now.
+        """)
+        cf_stack = self.deploy()
+
+        print("""\
         This workflow uses DICOM files from the National Cancer Institute Imaging Data Commons (IDC)
         Collections.
         
@@ -191,31 +198,23 @@ class MedicalImagingWorkflowScenario:
         {out_dir} in the working directory of this example.
         """)
 
-        print("-" * 88)
-        print("This concludes this workflow.")
-        # TODO: Delete image frames?
-        self.cleanup()
-        print("\nThanks for watching!")
-        print("-" * 88)
-
-    def cleanup(self):
-        """
-        Cleans up files created by the workflow.
-        """
+        print("\t\tThis concludes this workflow.")
         if q.ask(
-            f"Clean up files created by the workflow? (y/n) ",
+            f"\t\tClean up resources created by the workflow? (y/n) ",
             q.is_yesno,
         ):
-            # TODO: clean everything up.
-            print("Removed files created by the workflow.")
+            self.destroy(cf_stack)
+            print("\t\tRemoved files created by the workflow.")
+        print("-" * 88)
 
     def copy_single_object(self, key, source_bucket, target_bucket, target_directory):
         """
         Copies a single object from a source to a target bucket.
 
         :param key: The key of the object to copy.
-        :param source_bucket: The source bucket to copy from.
-        :param target_bucket: The target bucket to copy to.
+        :param source_bucket: The source bucket for the copy.
+        :param target_bucket: The target bucket for the copy.
+        :param target_directory: The target directory for the copy.
         """
         new_key = target_directory + "/" + key
         copy_source = {
@@ -226,7 +225,7 @@ class MedicalImagingWorkflowScenario:
             CopySource=copy_source,
             Bucket=target_bucket,
             Key=new_key)
-        print(f"\t\tCopying {key}.")
+        print(f"\n\t\tCopying {key}.")
 
     def copy_images(self, source_bucket, source_directory, target_bucket, target_directory):
         """
@@ -263,26 +262,26 @@ class MedicalImagingWorkflowScenario:
         defined in the associated `setup.yaml` AWS CloudFormation script and are deployed
         as a CloudFormation stack, so they can be easily managed and destroyed.
 
-        :param stack_name: The name of the CloudFormation stack.
-        :param cf_resource: A Boto3 CloudFormation resource.
         """
 
-        cf_resource = boto3.resource("cloudformation")
-        stack_name = "doc-example-medical-imaging-set-stack2"
+        print("\t\tLet's deploy the stack for resource creation.")
+        stack_name = q.ask("\t\tEnter a name for the stack: ", q.non_empty)
+
+        data_store_name = q.ask("\t\tEnter a name for the Health Imaging Data Store: ", q.non_empty)
+
         account_id = boto3.client("sts").get_caller_identity()["Account"]
-        test_data_store = "mytestdatastore2"
 
         with open("cfn_template.yaml") as setup_file:
             setup_template = setup_file.read()
         print(f"\t\tCreating {stack_name}.")
-        stack = cf_resource.create_stack(
+        stack = self.cf_resource.create_stack(
             StackName=stack_name,
             TemplateBody=setup_template,
             Capabilities=["CAPABILITY_NAMED_IAM"],
             Parameters=[
                 {
                     "ParameterKey": "datastoreName",
-                    "ParameterValue": test_data_store,
+                    "ParameterValue": data_store_name,
                 },
                 {
                     "ParameterKey": "userAccountID",
@@ -292,62 +291,84 @@ class MedicalImagingWorkflowScenario:
 
         )
         print("\t\tWaiting for stack to deploy. This typically takes a minute or two.")
-        waiter = cf_resource.meta.client.get_waiter("stack_create_complete")
+        waiter = self.cf_resource.meta.client.get_waiter("stack_create_complete")
         waiter.wait(StackName=stack.name)
         stack.load()
-        print(f"Stack status: {stack.stack_status}")
+        print(f"\tStack status: {stack.stack_status}")
         print("Created resources:")
         for resource in stack.resource_summaries.all():
-            print(f"\t{resource.resource_type}, {resource.physical_resource_id}")
+            print(f"\t\t{resource.resource_type}, {resource.physical_resource_id}")
         print("Outputs:")
         for output in stack.outputs:
-            print(f"\t{output['OutputKey']}: {output['OutputValue']}")
+            print(f"\t\t{output['OutputKey']}: {output['OutputValue']}")
 
         outputs_dictionary = {output["OutputKey"]: output["OutputValue"] for output in stack.outputs}
         self.input_bucket_name = outputs_dictionary["InputBucketName"]
         self.output_bucket_name = outputs_dictionary["OutputBucketName"]
         self.role_arn = outputs_dictionary["RoleArn"]
         self.data_store_id = outputs_dictionary["DatastoreID"]
+        return stack
 
-    def destroy(stack, cf_resource, s3_resource):
+    def destroy(self, stack):
         """
         Destroys the resources managed by the CloudFormation stack, and the CloudFormation
         stack itself.
 
         :param stack: The CloudFormation stack that manages the example resources.
-        :param cf_resource: A Boto3 CloudFormation resource.
-        :param s3_resource: A Boto3 S3 resource.
         """
-        bucket_name = None
+
+        print(f"\t\tCleaning up resources and {stack.name}.")
+        data_store_id = None
         for oput in stack.outputs:
-            if oput["OutputKey"] == "BucketName":
-                bucket_name = oput["OutputValue"]
-        if bucket_name is not None:
-            print(f"Deleting all objects in bucket {bucket_name}.")
-            s3_resource.Bucket(bucket_name).objects.delete()
-        print(f"Deleting {stack.name}.")
+            if oput["OutputKey"] == "DatastoreID":
+                data_store_id = oput["OutputValue"]
+        if data_store_id is not None:
+            print(f"\t\tDeleting image sets in data store {data_store_id}.")
+            image_sets = self.medical_imaging_wrapper.search_image_sets(data_store_id, {})
+            image_set_ids = [image_set["imageSetId"] for image_set in image_sets]
+
+            for image_set_id in image_set_ids:
+                self.medical_imaging_wrapper.delete_image_set(data_store_id, image_set_id)
+                print(f"\t\tDeleted image set with id : {image_set_id}")
+
+            # Wait for image sets to be deleted before deleting the stack.
+            '''
+            for image_set_id in image_set_ids:
+                while True:
+                    time.sleep(1)
+                    try:
+                        image_set_properties = self.medical_imaging_wrapper.get_image_set(
+                            data_store_id, image_set_id
+                        )
+                    except ClientError as err:
+                        print(
+                            f"get_image_set raised an error {err.response['Error']['Message']}"
+                        )
+                        break
+
+                    image_set_state = image_set_properties["imageSetState"]
+                    print(
+                        f'\t\tImage set with id : "{image_set_id}" has status: "{image_set_state}"'
+                    )
+                    if image_set_state == "DELETED":
+                        break
+                        '''
+        print(f"\t\tDeleting {stack.name}.")
         stack.delete()
-        print("Waiting for stack removal.")
-        waiter = cf_resource.meta.client.get_waiter("stack_delete_complete")
+        print("\t\tWaiting for stack removal. This may take a few minutes.")
+        waiter = self.cf_resource.meta.client.get_waiter("stack_delete_complete")
         waiter.wait(StackName=stack.name)
-        print("Stack delete complete.")
+        print("\t\tStack delete complete.")
 
 
 if __name__ == "__main__":
 
-    # Replace these values with your own, after deploying the AWS Cloud Formation resource stack.
-    data_access_role_arn = "arn:aws:iam::565846806325:role/healthimagingworkflow-docexampleimportrole77AD6B59-dkOpwZO4GH8o"
-    data_store = "e964880c2ca04f51843997e9d4b24ed1"
-    input_bucket = "healthimagingworkflow-docexampledicombucket120080d-yrmpiyrzv5pi"
-    output_bucket = "health-imaging-output-bucket"
-
     try:
         s3 = boto3.client('s3')
-        #cf_resource = boto3.resource("cloudformation")
-        #stack = cf_resource.Stack("doc-example-stepfunctions-messages-stack")
+        cf = boto3.resource("cloudformation")
+        medical_imaging_wrapper = MedicalImagingWrapper.from_client()
 
-        scenario = MedicalImagingWorkflowScenario(MedicalImagingWrapper.from_client(), s3)
-        scenario.deploy()
+        scenario = MedicalImagingWorkflowScenario(medical_imaging_wrapper, s3, cf)
         scenario.run_scenario()
     except Exception:
         logging.exception("Something went wrong with the workflow.")
