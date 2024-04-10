@@ -204,7 +204,8 @@ class MedicalImagingWorkflowScenario:
             q.is_yesno,
         ):
             self.destroy(cf_stack)
-            print("\t\tRemoved files created by the workflow.")
+            print("\t\tRemoved resources created by the workflow.")
+        print("\t\tThanks for watching!")
         print("-" * 88)
 
     def copy_single_object(self, key, source_bucket, target_bucket, target_directory):
