@@ -1178,7 +1178,7 @@ medical-imaging_Scenario_ImageSetsAndFrames:
               snippet_tags:
                 - cpp.example_code.medical-imaging.image-sets-workflow.clean_up
                 - cpp.example_code.medical-imaging.image-sets-workflow.empty_data_store
-    python:
+    Python:
       versions:
         - sdk_version: 3
           github: python/example_code/medical-imaging/imaging_set_and_frames_workflow
