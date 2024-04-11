@@ -76,7 +76,7 @@ class MedicalImagingWorkflowScenario:
         an AWS Identity and Access Management (IAM) role for importing the DICOM files into
         the data store.
         
-        These resources can be created separately using the provided AWS CloudFormation stack
+        These resources are created using the provided AWS CloudFormation stack
         which will be deployed now.
         """)
         cf_stack = self.deploy()
@@ -197,6 +197,7 @@ class MedicalImagingWorkflowScenario:
         print("\t\tThanks for watching!")
         print("-" * 88)
 
+    # snippet-start:[python.example_code.medical-imaging.workflow.copy]
     def copy_single_object(self, key, source_bucket, target_bucket, target_directory):
         """
         Copies a single object from a source to a target bucket.
@@ -245,10 +246,12 @@ class MedicalImagingWorkflowScenario:
             t.join()
 
         print("\t\tDone copying all objects.")
+    # snippet-end:[python.example_code.medical-imaging.workflow.copy]
 
+    # snippet-start:[python.example_code.medical-imaging.workflow.deploy]
     def deploy(self):
         """
-        Deploys prerequisite resources used by the `usage_demo` script. The resources are
+        Deploys prerequisite resources used by the scenario. The resources are
         defined in the associated `setup.yaml` AWS CloudFormation script and are deployed
         as a CloudFormation stack, so they can be easily managed and destroyed.
         """
@@ -291,7 +294,9 @@ class MedicalImagingWorkflowScenario:
         self.role_arn = outputs_dictionary["RoleArn"]
         self.data_store_id = outputs_dictionary["DatastoreID"]
         return stack
+    # snippet-end:[python.example_code.medical-imaging.workflow.deploy]
 
+    # snippet-start:[python.example_code.medical-imaging.workflow.destroy]
     def destroy(self, stack):
         """
         Destroys the resources managed by the CloudFormation stack, and the CloudFormation
@@ -320,7 +325,7 @@ class MedicalImagingWorkflowScenario:
         waiter = self.cf_resource.meta.client.get_waiter("stack_delete_complete")
         waiter.wait(StackName=stack.name)
         print("\t\tStack delete complete.")
-
+    # snippet-end:[python.example_code.medical-imaging.workflow.destroy]
 
 if __name__ == "__main__":
 
