@@ -1,22 +1,15 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-import concurrent
+
 import logging
 import boto3
 import os
 import gzip
-import json
-import jmespath
-import numpy as np
 import zlib
-import pydicom
-import dicom2jpg
+import openjpeg
 import json
 import jmespath
 import time
-from pydicom import dcmread
-
-
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
@@ -24,9 +17,6 @@ logger = logging.getLogger(__name__)
 
 # snippet-start:[python.example_code.medical-imaging.MedicalImagingWrapper.class]
 # snippet-start:[python.example_code.medical-imaging.MedicalImagingWrapper.decl]
-class ImageFrameInfo:
-    pass
-
 
 class MedicalImagingWrapper:
     """Encapsulates Amazon HealthImaging functionality."""
@@ -58,117 +48,38 @@ class MedicalImagingWrapper:
         :param out_directory: A directory for the downloaded images.
         :return: True if the function succeeded; otherwise, False.
         """
+        total_result = True
+        for image_frame in image_frames:
+            image_file_path = f"{out_directory}/image_{image_frame['imageSetId']}.jph"
+            self.get_pixel_data(
+                image_file_path,
+                data_store_id,
+                image_frame['imageSetId'],
+                image_frame['imageFrameId'])
 
-        # Test with a single file.
-        image_frame = image_frames[0]
-
-        image_file_path = f"{out_directory}/image_{image_frame['imageSetId']}.j2k"
-        result = self.get_pixel_data(
-            image_file_path,
-            data_store_id,
-            image_frame['imageSetId'],
-            image_frame['imageFrameId'])
-
-        self.jph_image_to_opj_bitmap(image_file_path)
-
-        # dicom2jpg.dicom2jpg(out_directory)
-
-        # self.verify_checksum_for_image(image_file_path, image_frame["fullResolutionChecksum"])
-
-        return result
-
-    def verify_checksum_for_image(self, image, crc32_checksum):
-        """
-        Verifies the checksum for an image.
-
-        :param image: The image to verify.
-        :param crc32_checksum: The checksum to match.
-        """
-
-        channels = image.numcomps
-        result = False
-        if channels > 0:
-            # Assume precision is same for all channels.
-            precision = image.comps[0].prec
-            signed_data = image.comps[0].sgnd
-            img_bytes = (precision + 7) // 8
-
-            if signed_data:
-                if img_bytes == 1:
-                    result = self.verifyChecksumForImageForType(image, crc32_checksum, np.int8)
-                elif img_bytes == 2:
-                    result = self.verifyChecksumForImageForType(image, crc32_checksum, np.int16)
-                elif img_bytes == 4:
-                    result = self.verifyChecksumForImageForType(image, crc32_checksum, np.int32)
-                else:
-                    print(f"Unsupported signed data type with {img_bytes} bytes.")
-
-            else:
-                if img_bytes == 1:
-                    result = self.verifyChecksumForImageForType(image, crc32_checksum, np.uint8)
-                elif img_bytes == 2:
-                    result = self.verifyChecksumForImageForType(image, crc32_checksum, np.uint16)
-                elif img_bytes == 4:
-                    result = self.erifyChecksumForImageForType(image, crc32_checksum, np.uint32)
-                else:
-                    print(f"Unsupported unsigned data type with {img_bytes} bytes.")
-        else:
-            print("No channels in image.")
-        return result;
-
-    @staticmethod
-    def verify_checksum_for_image_for_type(image, crc32_checksum, dtype):
-        """
-        Verifies the checksum for an image of a specific type.
-
-        :param image: The image to verify.
-        :param crc32_checksum: The checksum to match.
-        :param dtype: The data type.
-        """
-        width = image.x1 - image.x0
-        height = image.y1 - image.y0
-        num_of_channels = image.numcomps
-
-        # Buffer for interleaved bitmap.
-        buffer = np.zeros((width * height * num_of_channels,), dtype)
-
-        # Convert planar bitmap to interleaved bitmap.
-        for channel in range(num_of_channels):
-            for row in range(height):
-                from_row_start = row // image.comps[channel].dy * width // image.comps[channel].dx
-                to_index = (row * width) * num_of_channels + channel
-
-                for col in range(width):
-                    from_index = from_row_start + col // image.comps[channel].dx
-
-                    buffer[to_index] = image.comps[channel].data[from_index]
-
-                    to_index += num_of_channels
-
-        # Verify checksum
-        crc32 = zlib.crc32(buffer)
-
-        result = crc32 == crc32_checksum
-        if not result:
-            print(f"Checksum mismatch, expected {crc32_checksum}, actual {crc32}")
-
-        return result
+            image_array = self.jph_image_to_opj_bitmap(image_file_path)
+            crc32_checksum = image_frame['fullResolutionChecksum']
+            # Verify checksum.
+            crc32_calculated = zlib.crc32(image_array)
+            image_result = crc32_checksum == crc32_calculated
+            print(f"\t\tImage checksum verified for {image_frame['imageSetId']}: {image_result }")
+            total_result = total_result and image_result
+        return total_result
 
     @staticmethod
     def jph_image_to_opj_bitmap(jph_file):
         """
-        Decode the image to a jpg using a DICOM library.
+        Decode the image to a bitmap using a OPENJPEG library.
         :param jph_file: The file to decode.
+        :return: The decoded bitmap as an array.
         """
-        from openjpeg import decode
-        import cv2
+        # Use format 2 for th JP2 file.
+        params = openjpeg.utils.get_parameters(jph_file, 2)
+        print(f"\n\t\tImage parameters for {jph_file}: \n\t\t{params}")
 
-        with open(jph_file, 'rb') as f:
-            # Returns a numpy array
-            arr = decode(f)
-        cv2.imwrite("filename.bmp", arr)
+        image_array = openjpeg.utils.decode(jph_file, 2)
 
-        # dicom2jpg.dicom2jpg(jph_file)
+        return image_array
 
     # snippet-start:[python.example_code.medical-imaging.CreateDatastore]
     def create_datastore(self, name):

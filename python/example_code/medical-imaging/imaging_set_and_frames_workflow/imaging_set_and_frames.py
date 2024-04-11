@@ -32,17 +32,6 @@ import demo_tools.question as q
 
 logger = logging.getLogger(__name__)
 
-'''
-TEMPLATES_PATH = "templates"
-
-DATASTORE_PARAMETER = "datastoreName"
-USER_ACCOUNT_ID_PARAMETER = "userAccountID"
-ROLE_ARN_OUTPUT = "RoleArn"
-BUCKET_NAME_OUTPUT = "InputBucketName"
-OUTPUT_BUCKET_NAME_OUTPUT = "OutputBucketName"
-DATASTORE_ID_OUTPUT = "DatastoreID"
-'''
-
 IDC_S3_BUCKET_NAME = "idc-open-data"
 
 IDC_IMAGE_CHOICES = [
@@ -262,7 +251,6 @@ class MedicalImagingWorkflowScenario:
         Deploys prerequisite resources used by the `usage_demo` script. The resources are
         defined in the associated `setup.yaml` AWS CloudFormation script and are deployed
         as a CloudFormation stack, so they can be easily managed and destroyed.
-
         """
 
         print("\t\tLet's deploy the stack for resource creation.")
@@ -296,12 +284,6 @@ class MedicalImagingWorkflowScenario:
         waiter.wait(StackName=stack.name)
         stack.load()
         print(f"\tStack status: {stack.stack_status}")
-        print("Created resources:")
-        for resource in stack.resource_summaries.all():
-            print(f"\t\t{resource.resource_type}, {resource.physical_resource_id}")
-        print("Outputs:")
-        for output in stack.outputs:
-            print(f"\t\t{output['OutputKey']}: {output['OutputValue']}")
 
         outputs_dictionary = {output["OutputKey"]: output["OutputValue"] for output in stack.outputs}
         self.input_bucket_name = outputs_dictionary["InputBucketName"]
@@ -332,28 +314,6 @@ class MedicalImagingWorkflowScenario:
                 self.medical_imaging_wrapper.delete_image_set(data_store_id, image_set_id)
                 print(f"\t\tDeleted image set with id : {image_set_id}")
 
-            # Wait for image sets to be deleted before deleting the stack.
-            '''
-            for image_set_id in image_set_ids:
-                while True:
-                    time.sleep(1)
-                    try:
-                        image_set_properties = self.medical_imaging_wrapper.get_image_set(
-                            data_store_id, image_set_id
-                        )
-                    except ClientError as err:
-                        print(
-                            f"get_image_set raised an error {err.response['Error']['Message']}"
-                        )
-                        break
-
-                    image_set_state = image_set_properties["imageSetState"]
-                    print(
-                        f'\t\tImage set with id : "{image_set_id}" has status: "{image_set_state}"'
-                    )
-                    if image_set_state == "DELETED":
-                        break
-                        '''
         print(f"\t\tDeleting {stack.name}.")
         stack.delete()
         print("\t\tWaiting for stack removal. This may take a few minutes.")
