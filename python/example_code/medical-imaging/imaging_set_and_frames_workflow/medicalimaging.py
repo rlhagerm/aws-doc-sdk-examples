@@ -21,16 +21,19 @@ logger = logging.getLogger(__name__)
 class MedicalImagingWrapper:
     """Encapsulates Amazon HealthImaging functionality."""
 
-    def __init__(self, medical_imaging_client):
+    def __init__(self, medical_imaging_client, s3_client):
         """
         :param medical_imaging_client: A Boto3 Amazon MedicalImaging client.
+        :param s3_client: A Boto3 S3 client.
         """
         self.medical_imaging_client = medical_imaging_client
+        self.s3_client = s3_client
 
     @classmethod
     def from_client(cls):
         medical_imaging_client = boto3.client("medical-imaging")
-        return cls(medical_imaging_client)
+        s3_client = boto3.client("s3")
+        return cls(medical_imaging_client, s3_client)
 
     # snippet-end:[python.example_code.medical-imaging.MedicalImagingWorkflowWrapper.decl]
 
@@ -92,6 +95,7 @@ class MedicalImagingWrapper:
         output_uri = f"s3://{output_bucket_name}/{output_directory}/"
         try:
             job = self.medical_imaging_client.start_dicom_import_job(
+                jobName="examplejob",
                 datastoreId=data_store_id,
                 dataAccessRoleArn=role_arn,
                 inputS3Uri=input_uri,
@@ -126,7 +130,6 @@ class MedicalImagingWrapper:
 
         output_uri = import_job['jobProperties']['outputS3Uri']
 
-        s3 = boto3.client('s3')
         bucket = output_uri.split('/')[2]
         key = '/'.join(output_uri.split('/')[3:])
 
@@ -134,16 +137,18 @@ class MedicalImagingWrapper:
         retries = 3
         while retries > 0:
             try:
-                obj = s3.get_object(Bucket=bucket, Key=key + 'job-output-manifest.json')
+                obj = self.s3_client.get_object(Bucket=bucket, Key=key + 'job-output-manifest.json')
                 body = obj['Body']
                 break
             except ClientError as error:
                 retries = retries - 1
                 time.sleep(3)
-
-        data = json.load(body)
-        expression = jmespath.compile("jobSummary.imageSetsSummary[].imageSetId")
-        image_sets = expression.search(data)
+        try:
+            data = json.load(body)
+            expression = jmespath.compile("jobSummary.imageSetsSummary[].imageSetId")
+            image_sets = expression.search(data)
+        except json.decoder.JSONDecodeError as error:
+            image_sets = import_job["jobProperties"]
 
         return image_sets
     # snippet-end:[python.example_code.medical-imaging.workflow.GetImageSetsForImportJob]
@@ -214,6 +219,8 @@ class MedicalImagingWrapper:
                     }
                     image_frames.append(image_frame_info)
             return image_frames
+        except TypeError:
+            return {}
         except ClientError as err:
             logger.error(
                 "Couldn't get image frames for image set. Here's why: %s: %s",
