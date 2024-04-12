@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 # snippet-start:[python.example_code.medical-imaging.MedicalImagingWorkflowWrapper.class]
 # snippet-start:[python.example_code.medical-imaging.MedicalImagingWorkflowWrapper.decl]
 
+
 class MedicalImagingWrapper:
     """Encapsulates Amazon HealthImaging functionality."""
 
@@ -77,8 +78,15 @@ class MedicalImagingWrapper:
     # snippet-end:[python.example_code.medical-imaging.workflow.GetImageSetMetadata]
 
     # snippet-start:[python.example_code.medical-imaging.workflow.StartDICOMImportJob]
-    def start_dicom_import_job(self, data_store_id, input_bucket_name, input_directory,
-                               output_bucket_name, output_directory, role_arn):
+    def start_dicom_import_job(
+        self,
+        data_store_id,
+        input_bucket_name,
+        input_directory,
+        output_bucket_name,
+        output_directory,
+        role_arn,
+    ):
         """
         Routine which starts a HealthImaging import job.
 
@@ -99,7 +107,7 @@ class MedicalImagingWrapper:
                 datastoreId=data_store_id,
                 dataAccessRoleArn=role_arn,
                 inputS3Uri=input_uri,
-                outputS3Uri=output_uri
+                outputS3Uri=output_uri,
             )
         except ClientError as err:
             logger.error(
@@ -124,21 +132,22 @@ class MedicalImagingWrapper:
         """
 
         import_job = self.medical_imaging_client.get_dicom_import_job(
-            datastoreId=datastore_id,
-            jobId=import_job_id
+            datastoreId=datastore_id, jobId=import_job_id
         )
 
-        output_uri = import_job['jobProperties']['outputS3Uri']
+        output_uri = import_job["jobProperties"]["outputS3Uri"]
 
-        bucket = output_uri.split('/')[2]
-        key = '/'.join(output_uri.split('/')[3:])
+        bucket = output_uri.split("/")[2]
+        key = "/".join(output_uri.split("/")[3:])
 
         # Try to get the manifest.
         retries = 3
         while retries > 0:
             try:
-                obj = self.s3_client.get_object(Bucket=bucket, Key=key + 'job-output-manifest.json')
-                body = obj['Body']
+                obj = self.s3_client.get_object(
+                    Bucket=bucket, Key=key + "job-output-manifest.json"
+                )
+                body = obj["Body"]
                 break
             except ClientError as error:
                 retries = retries - 1
@@ -151,6 +160,7 @@ class MedicalImagingWrapper:
             image_sets = import_job["jobProperties"]
 
         return image_sets
+
     # snippet-end:[python.example_code.medical-imaging.workflow.GetImageSetsForImportJob]
 
     # snippet-start:[python.example_code.medical-imaging.workflow.SearchImageSets]
@@ -207,7 +217,9 @@ class MedicalImagingWrapper:
                 image_frames_json = jmespath.search("ImageFrames[][]", instance)
                 for image_frame in image_frames_json:
                     checksum_json = jmespath.search(
-                        "max_by(PixelDataChecksumFromBaseToFullResolution, &Width)", image_frame)
+                        "max_by(PixelDataChecksumFromBaseToFullResolution, &Width)",
+                        image_frame,
+                    )
                     image_frame_info = {
                         "imageSetId": image_set_id,
                         "imageFrameId": image_frame["ID"],
@@ -215,7 +227,7 @@ class MedicalImagingWrapper:
                         "rescaleSlope": rescale_slope,
                         "minPixelValue": image_frame["MinPixelValue"],
                         "maxPixelValue": image_frame["MaxPixelValue"],
-                        "fullResolutionChecksum": checksum_json["Checksum"]
+                        "fullResolutionChecksum": checksum_json["Checksum"],
                     }
                     image_frames.append(image_frame_info)
             return image_frames
@@ -229,6 +241,7 @@ class MedicalImagingWrapper:
             )
             raise
         return image_frames
+
     # snippet-end:[python.example_code.medical-imaging.workflow.GetImageFrames]
 
     # snippet-start:[python.example_code.medical-imaging.workflow.GetImageSet]
@@ -266,10 +279,8 @@ class MedicalImagingWrapper:
 
     # snippet-start:[python.example_code.medical-imaging.workflow.downloadAndCheck]
     def download_decode_and_check_image_frames(
-            self,
-            data_store_id,
-            image_frames,
-            out_directory):
+        self, data_store_id, image_frames, out_directory
+    ):
         """
         Downloads image frames, decodes them, and uses the checksum to validate
         the decoded images.
@@ -285,15 +296,18 @@ class MedicalImagingWrapper:
             self.get_pixel_data(
                 image_file_path,
                 data_store_id,
-                image_frame['imageSetId'],
-                image_frame['imageFrameId'])
+                image_frame["imageSetId"],
+                image_frame["imageFrameId"],
+            )
 
             image_array = self.jph_image_to_opj_bitmap(image_file_path)
-            crc32_checksum = image_frame['fullResolutionChecksum']
+            crc32_checksum = image_frame["fullResolutionChecksum"]
             # Verify checksum.
             crc32_calculated = zlib.crc32(image_array)
             image_result = crc32_checksum == crc32_calculated
-            print(f"\t\tImage checksum verified for {image_frame['imageSetId']}: {image_result }")
+            print(
+                f"\t\tImage checksum verified for {image_frame['imageSetId']}: {image_result }"
+            )
             total_result = total_result and image_result
         return total_result
 
@@ -311,11 +325,12 @@ class MedicalImagingWrapper:
         image_array = openjpeg.utils.decode(jph_file, 2)
 
         return image_array
+
     # snippet-end:[python.example_code.medical-imaging.workflow.downloadAndCheck]
 
     # snippet-start:[python.example_code.medical-imaging.workflow.GetPixelData]
     def get_pixel_data(
-            self, file_path_to_write, datastore_id, image_set_id, image_frame_id
+        self, file_path_to_write, datastore_id, image_set_id, image_frame_id
     ):
         """
         Get an image frame's pixel data.
@@ -364,6 +379,8 @@ class MedicalImagingWrapper:
                 err.response["Error"]["Message"],
             )
             raise
+
     # snippet-end:[python.example_code.medical-imaging.workflow.DeleteImageSet]
+
 
 # snippet-end:[python.example_code.medical-imaging.MedicalImagingWorkflowWrapper.class]
