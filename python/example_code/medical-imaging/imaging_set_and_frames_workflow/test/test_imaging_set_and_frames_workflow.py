@@ -19,9 +19,11 @@ from imaging_set_and_frames import MedicalImagingWorkflowScenario
 )
 @pytest.mark.integ
 def test_run_imaging_set_and_frames_scenario_integ(input_mocker, capsys):
-    s3 = boto3.client('s3')
+    s3 = boto3.client("s3")
     cf = boto3.resource("cloudformation")
-    scenario = MedicalImagingWorkflowScenario(MedicalImagingWrapper.from_client(), s3, cf)
+    scenario = MedicalImagingWorkflowScenario(
+        MedicalImagingWrapper.from_client(), s3, cf
+    )
 
     input_mocker.mock_answers(
         [
@@ -41,6 +43,7 @@ def test_run_imaging_set_and_frames_scenario_integ(input_mocker, capsys):
 
     capt = capsys.readouterr()
     assert "Thanks for watching!" in capt.out
+
 
 @pytest.mark.parametrize("error_code", [None, "TestException"])
 def test_get_image_set_metadata(make_stubber, error_code):
@@ -64,6 +67,7 @@ def test_get_image_set_metadata(make_stubber, error_code):
         with pytest.raises(ClientError) as exc_info:
             wrapper.get_image_set_metadata(test_file, datastore_id, image_set_id)
         assert exc_info.value.response["Error"]["Code"] == error_code
+
 
 @pytest.mark.parametrize("error_code", [None, "TestException"])
 def test_start_dicom_import_job(make_stubber, error_code):
@@ -94,15 +98,23 @@ def test_start_dicom_import_job(make_stubber, error_code):
 
     if error_code is None:
         result = wrapper.start_dicom_import_job(
-            datastore_id, input_bucket_name, input_directory, output_bucket_name,
-            output_directory, role_arn
+            datastore_id,
+            input_bucket_name,
+            input_directory,
+            output_bucket_name,
+            output_directory,
+            role_arn,
         )
         assert result == job_id
     else:
         with pytest.raises(ClientError) as exc_info:
             wrapper.start_dicom_import_job(
-                datastore_id, input_bucket_name, input_directory, output_bucket_name,
-                output_directory, role_arn
+                datastore_id,
+                input_bucket_name,
+                input_directory,
+                output_bucket_name,
+                output_directory,
+                role_arn,
             )
         assert exc_info.value.response["Error"]["Code"] == error_code
 
@@ -126,15 +138,14 @@ def test_get_image_sets_for_dicom_import_job(make_stubber, error_code):
     )
 
     if error_code is None:
-        s3_stubber.stub_get_object(
-            bucket, key, test_content, error_code=error_code
-        )
+        s3_stubber.stub_get_object(bucket, key, test_content, error_code=error_code)
         result = wrapper.get_image_sets_for_dicom_import_job(datastore_id, job_id)
         assert result["jobStatus"] == job_status
     else:
         with pytest.raises(ClientError) as exc_info:
             wrapper.get_image_sets_for_dicom_import_job(datastore_id, job_id)
         assert exc_info.value.response["Error"]["Code"] == error_code
+
 
 @pytest.mark.parametrize("error_code", [None, "TestException"])
 def test_search_mage_sets(make_stubber, error_code):
@@ -231,4 +242,3 @@ def test_delete_image_set(make_stubber, error_code):
         with pytest.raises(ClientError) as exc_info:
             wrapper.delete_image_set(datastore_id, image_set_id)
         assert exc_info.value.response["Error"]["Code"] == error_code
-
