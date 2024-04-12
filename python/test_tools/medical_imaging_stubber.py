@@ -187,13 +187,11 @@ class MedicalImagingStubber(ExampleStubber):
         data_string = b'"{data: akdelfaldkflakdflkajs}"'
 
         gzip_stream = io.BytesIO()
-        with gzip.open(gzip_stream, 'wb') as f:
+        with gzip.open(gzip_stream, "wb") as f:
             f.write(data_string)
         gzip_stream.seek(0)
 
-        stream = botocore.response.StreamingBody(
-            gzip_stream, 49
-        )
+        stream = botocore.response.StreamingBody(gzip_stream, 49)
 
         response = {
             "contentType": " text/plain",
