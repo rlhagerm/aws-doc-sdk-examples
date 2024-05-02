@@ -1,0 +1,8 @@
+{
+  "RepoLocation": "C:\\Work\\Repos\\Forks\\aws-doc-sdk-examples\\dotnetv3",
+  "YamlFilesLocation": "C:\\Work\\Repos\\Forks\\aws-doc-sdk-examples\\.doc_gen\\metadata",
+  "PreferredSDK": ".NET",
+  "PreferredSDKVersion": "3",
+  "IdeLocation": "test",
+  "TerminalText": "/C dotnet run "
+}
