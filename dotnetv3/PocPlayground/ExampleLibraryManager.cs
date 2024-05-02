@@ -1,6 +1,9 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. 
 // SPDX-License-Identifier: Apache-2.0
 
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
+
 namespace PocPlayground;
 
 public static class ExampleLibraryManager
@@ -20,6 +23,47 @@ public static class ExampleLibraryManager
             RepoUrl = ""
         };
         exampleModels.Add(s3LocModel);
+        return exampleModels;
+    }
+
+    public static List<ExampleModel> GetExampleModelsFromYaml()
+    {
+        var exampleModels = new List<ExampleModel>();
+
+        var s3LocModel = new ExampleModel()
+        {
+            Title = "Work with Amazon S3 object lock features using an AWS SDK",
+            Summary =
+                "The following code examples show how to work with S3 object lock features.",
+            Sdk = ".NET",
+            Version = "3",
+            Location = "",
+            Readme = "",
+            RepoUrl = ""
+        };
+        exampleModels.Add(s3LocModel);
+
+        var yamlFile =
+            @"C:\Work\Repos\Forks\aws-doc-sdk-examples\.doc_gen\metadata\s3_metadata.yaml";
+
+        string yamlText = System.IO.File.ReadAllText(yamlFile);
+
+        yamlText = yamlText.Replace("&S3;", "AWS S3");
+        yamlText = yamlText.Replace("&AWS;", "AWS");
+
+        var deserializer = new DeserializerBuilder()
+            .IgnoreUnmatchedProperties()
+            .WithNamingConvention(UnderscoredNamingConvention.Instance)  // see height_in_inches in sample yml 
+            .Build();
+
+        var examples = deserializer.Deserialize<Dictionary<string, ExampleModel>>(yamlText);
+
+        foreach (var model in examples)
+        {
+            exampleModels.Add(model.Value);
+        }
+
+
         return exampleModels;
     }
 
@@ -45,13 +89,3 @@ public static class ExampleLibraryManager
     }
 }
 
-public class ExampleModel
-{
-    public string Title { get; set; }
-    public string Summary { get; set; }
-    public string Sdk { get; set; }
-    public string Version { get; set; }
-    public string Location { get; set; }
-    public string Readme { get; set; }
-    public string RepoUrl { get; set; }
-}

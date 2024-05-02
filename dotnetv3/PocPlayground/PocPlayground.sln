@@ -5,6 +5,11 @@ VisualStudioVersion = 17.9.34714.143
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PocPlayground", "PocPlayground.csproj", "{21BFA219-AD33-42E3-A4FA-DAD21E016F19}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{D12F8951-ED8A-4FA2-8DC0-12E786A3D9F4}"
+	ProjectSection(SolutionItems) = preProject
+		ExampleModel.cs = ExampleModel.cs
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

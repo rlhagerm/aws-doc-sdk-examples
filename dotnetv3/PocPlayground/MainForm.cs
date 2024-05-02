@@ -21,7 +21,8 @@ namespace PocPlayground
         {
             base.OnLoad(e);
 
-            var examplesList = ExampleLibraryManager.GetExampleModels();
+            //var examplesList = ExampleLibraryManager.GetExampleModels();
+            var examplesList = ExampleLibraryManager.GetExampleModelsFromYaml();
 
             foreach (var example in examplesList)
             {

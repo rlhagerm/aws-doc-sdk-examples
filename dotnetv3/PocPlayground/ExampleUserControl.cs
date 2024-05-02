@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -28,6 +29,16 @@ namespace PocPlayground
         private void btnRun_Click(object sender, EventArgs e)
         {
             ExampleLibraryManager.RunExample("test");
+        }
+
+        private void lnkReadme_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            // Specify that the link was visited.
+            this.lnkReadme.LinkVisited = true;
+
+            // Navigate to a URL
+
+            System.Diagnostics.Process.Start("explorer.exe",@"https://github.com/awsdocs/aws-doc-sdk-examples/tree/main/workflows/s3_object_lock");
         }
 
         public string Title

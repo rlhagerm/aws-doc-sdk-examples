@@ -75,7 +75,7 @@ namespace PocPlayground
             btnRun.Depth = 0;
             btnRun.HighEmphasis = true;
             btnRun.Icon = null;
-            btnRun.Location = new Point(0, 64);
+            btnRun.Location = new Point(0, 52);
             btnRun.Margin = new Padding(20);
             btnRun.MouseState = MaterialSkin.MouseState.HOVER;
             btnRun.Name = "btnRun";
@@ -97,6 +97,7 @@ namespace PocPlayground
             lblTitle.FontType = MaterialSkin.MaterialSkinManager.fontType.H5;
             lblTitle.HighEmphasis = true;
             lblTitle.Location = new Point(10, 10);
+            lblTitle.MaximumSize = new Size(700, 0);
             lblTitle.MouseState = MaterialSkin.MouseState.HOVER;
             lblTitle.Name = "lblTitle";
             lblTitle.Size = new Size(48, 29);
@@ -107,12 +108,13 @@ namespace PocPlayground
             // 
             lnkReadme.AutoSize = true;
             lnkReadme.Dock = DockStyle.Bottom;
-            lnkReadme.Location = new Point(10, 85);
+            lnkReadme.Location = new Point(10, 73);
             lnkReadme.Name = "lnkReadme";
-            lnkReadme.Size = new Size(60, 15);
+            lnkReadme.Size = new Size(83, 15);
             lnkReadme.TabIndex = 3;
             lnkReadme.TabStop = true;
-            lnkReadme.Text = "linkLabel1";
+            lnkReadme.Text = "VIEW README";
+            lnkReadme.LinkClicked += lnkReadme_LinkClicked;
             // 
             // lblSummary
             // 
@@ -132,9 +134,9 @@ namespace PocPlayground
             panel1.Controls.Add(btnViewCode);
             panel1.Controls.Add(btnRun);
             panel1.Dock = DockStyle.Right;
-            panel1.Location = new Point(661, 10);
+            panel1.Location = new Point(638, 10);
             panel1.Name = "panel1";
-            panel1.Size = new Size(125, 110);
+            panel1.Size = new Size(125, 98);
             panel1.TabIndex = 5;
             // 
             // panel2
@@ -146,7 +148,7 @@ namespace PocPlayground
             panel2.Location = new Point(10, 10);
             panel2.Name = "panel2";
             panel2.Padding = new Padding(10);
-            panel2.Size = new Size(651, 110);
+            panel2.Size = new Size(628, 98);
             panel2.TabIndex = 6;
             // 
             // ExampleUserControl
@@ -156,9 +158,10 @@ namespace PocPlayground
             BorderStyle = BorderStyle.FixedSingle;
             Controls.Add(panel2);
             Controls.Add(panel1);
+            MaximumSize = new Size(825, 120);
             Name = "ExampleUserControl";
             Padding = new Padding(10);
-            Size = new Size(796, 130);
+            Size = new Size(773, 118);
             panel1.ResumeLayout(false);
             panel2.ResumeLayout(false);
             panel2.PerformLayout();

@@ -140,7 +140,7 @@ namespace PocPlayground
             flowLayoutPanel1.Location = new Point(147, 138);
             flowLayoutPanel1.Margin = new Padding(0);
             flowLayoutPanel1.Name = "flowLayoutPanel1";
-            flowLayoutPanel1.Size = new Size(882, 309);
+            flowLayoutPanel1.Size = new Size(868, 309);
             flowLayoutPanel1.TabIndex = 4;
             // 
             // flowLayoutPanel2
@@ -243,7 +243,7 @@ namespace PocPlayground
             Controls.Add(flowLayoutPanel1);
             Controls.Add(panel1);
             Name = "MainForm";
-            Text = "Example Playground";
+            Text = "AWS SDK Code Example Playground";
             flowLayoutPanel1.ResumeLayout(false);
             panel1.ResumeLayout(false);
             panel1.PerformLayout();
