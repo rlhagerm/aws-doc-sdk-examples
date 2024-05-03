@@ -29,7 +29,7 @@ namespace PocPlayground
                 flowLayoutPanel1.Examples.Add(new ExampleUserControl()
                 {
                     Title = example.Title,
-                    Summary = example.Summary
+                    Summary = example.Synopsis
                 });
             }
         }

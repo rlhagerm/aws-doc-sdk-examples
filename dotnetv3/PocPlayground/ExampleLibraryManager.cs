@@ -1,6 +1,7 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. 
 // SPDX-License-Identifier: Apache-2.0
 
+using Accessibility;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -14,7 +15,7 @@ public static class ExampleLibraryManager
         var s3LocModel = new ExampleModel()
         {
             Title = "Work with Amazon S3 object lock features using an AWS SDK",
-            Summary =
+            Synopsis = 
                 "The following code examples show how to work with S3 object lock features.",
             Sdk = ".NET",
             Version = "3",
@@ -33,7 +34,7 @@ public static class ExampleLibraryManager
         var s3LocModel = new ExampleModel()
         {
             Title = "Work with Amazon S3 object lock features using an AWS SDK",
-            Summary =
+            Synopsis = 
                 "The following code examples show how to work with S3 object lock features.",
             Sdk = ".NET",
             Version = "3",
@@ -60,6 +61,8 @@ public static class ExampleLibraryManager
 
         foreach (var model in examples)
         {
+            model.Value.Synopsis = "The following code examples show how to " +
+                                   model.Value.Synopsis;
             exampleModels.Add(model.Value);
         }
 
