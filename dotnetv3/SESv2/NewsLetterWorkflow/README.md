@@ -1,5 +1,7 @@
 # Amazon SES v2 Coupon Newsletter Workflow
 
+## Overview
+
 This workflow demonstrates how to use the Amazon Simple Email Service (SES) v2 to send a coupon newsletter to a list of contacts. It covers the following key steps:
 
 1. **Prepare the Application**
@@ -30,7 +32,18 @@ This workflow demonstrates how to use the Amazon Simple Email Service (SES) v2 t
    - Delete the contact list.
    - Optionally delete the sender verified email identity.
 
-## Prerequisites
+## ⚠ Important
+
+* Running this code might result in charges to your AWS account.
+* Running the tests might result in charges to your AWS account.
+* We recommend that you grant your code least privilege. At most, grant only the minimum permissions required to perform the task. For more information, see [Grant least privilege](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#grant-least-privilege).
+* This code is not tested in every AWS Region. For more information, see [AWS Regional Services](https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services).
+
+## Scenario
+
+### Prerequisites
+
+For general prerequisites, see the [README](../../README.md) in the `dotnetv3` folder.
 
 Before running this workflow, ensure you have:
 
@@ -60,14 +73,22 @@ The workflow covers the following SES v2 API actions:
 - [`ListContacts`](https://docs.aws.amazon.com/ses/latest/APIReference-V2/API_ListContacts.html)
 - [`SendEmail`](https://docs.aws.amazon.com/ses/latest/APIReference-V2/API_SendEmail.html) (with both Simple and Template formats)
 
-## Implementations
+### Instructions
 
-This example is implemented in the following languages:
+After the example compiles, you can run it from the command line. To do so, navigate to
+the folder that contains the .sln file and run the following command:
 
-- [Java](../../javav2/example_code/ses/README.md)
-- [Python](../../python/example_code/sesv2/README.md)
-- [Rust](../../rustv1/examples/ses/README.md)
-- [.NET](../../dotnetv3/SESv2/NewsLetterWorkflow/README.md)
+```
+dotnet run
+```
+
+Alternatively, you can run the example from within your IDE.
+
+## Additional resources
+
+- [Amazon SES v2 API Developer Guide](https://docs.aws.amazon.com/ses/latest/dg/Welcome.html)
+- [Amazon SES v2 API API Reference](https://docs.aws.amazon.com/ses/latest/APIReference-V2/Welcome.html)
+- [SDK for .NET Amazon SES v2 API reference](https://docs.aws.amazon.com/sdkfornet/v3/apidocs/items/Sesv2/NSesv2.html)
 
 ---
 
