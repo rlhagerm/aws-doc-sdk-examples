@@ -233,7 +233,8 @@ public class EC2WrapperTests
     [Trait("Category", "Integration")]
     public async Task AllocateAddressTest()
     {
-        _allocationId = await _ec2Wrapper.AllocateAddress();
+        var allocationResponse = await _ec2Wrapper.AllocateAddress();
+        _allocationId = allocationResponse.AllocationId;
         Assert.NotNull(_allocationId);
     }
 

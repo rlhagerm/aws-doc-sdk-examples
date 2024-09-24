@@ -36,7 +36,7 @@
 
 	<ItemGroup>
 	  <ProjectReference Include="..\Actions\EC2Actions.csproj" />
-	  <ProjectReference Include="..\Scenarios\EC2_Basics\Ec2_Basics.csproj" />
+	  <ProjectReference Include="..\Scenarios\EC2_Basics\Basics.csproj" />
 	</ItemGroup>
 
 </Project>

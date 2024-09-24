@@ -1,6 +1,9 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
+
 namespace EC2Actions;
 
 // snippet-start:[EC2.dotnetv3.EC2WrapperClass]
@@ -10,29 +13,60 @@ namespace EC2Actions;
 public class EC2Wrapper
 {
     private readonly IAmazonEC2 _amazonEC2;
+    private readonly ILogger<EC2Wrapper> _logger;
 
-    public EC2Wrapper(IAmazonEC2 amazonService)
+    /// <summary>
+    /// Constructor for the EC2Wrapper class.
+    /// </summary>
+    /// <param name="amazonScheduler">The injected EC2 client.</param>
+    /// <param name="logger">The injected logger.</param>
+    public EC2Wrapper(IAmazonEC2 amazonService, ILogger<EC2Wrapper> logger)
     {
         _amazonEC2 = amazonService;
+        _logger = logger;
     }
 
     // snippet-start:[EC2.dotnetv3.AllocateAddress]
     /// <summary>
-    /// Allocate an Elastic IP address.
+    /// Allocates an Elastic IP address that can be associated with an Amazon EC2
+    // instance.By using an Elastic IP address, you can keep the public IP address
+    // constant even when you restart the associated instance.
     /// </summary>
-    /// <returns>The allocation Id of the allocated address.</returns>
-    public async Task<string> AllocateAddress()
+    /// <returns>The response object for the allocated address.</returns>
+    public async Task<AllocateAddressResponse> AllocateAddress()
     {
         var request = new AllocateAddressRequest();
 
-        var response = await _amazonEC2.AllocateAddressAsync(request);
-        return response.AllocationId;
+        try
+        {
+            var response = await _amazonEC2.AllocateAddressAsync(request);
+            Console.WriteLine($"Allocated IP: {response.PublicIp} with allocation ID {response.AllocationId}.");
+            return response;
+        }
+        catch (AmazonEC2Exception ec2Exception)
+        {
+            if (ec2Exception.ErrorCode == "AddressLimitExceeded")
+            {
+                // For more information on Elastic IP address quotas, see:
+                // https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html#using-instance-addressing-limit
+                _logger.LogError($"Unable to allocate Elastic IP, address limit exceeded. {ec2Exception.Message}");
+            }
+
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"An error occurred while allocating Elastic IP.: {ex.Message}");
+            throw;
+        }
     }
     // snippet-end:[EC2.dotnetv3.AllocateAddress]
 
     // snippet-start:[EC2.dotnetv3.AssociateAddress]
     /// <summary>
-    /// Associate an Elastic IP address to an EC2 instance.
+    /// Associates an Elastic IP address with an instance. When this association is
+    /// created, the Elastic IP's public IP address is immediately used as the public
+    /// IP address of the associated instance.
     /// </summary>
     /// <param name="allocationId">The allocation Id of an Elastic IP address.</param>
     /// <param name="instanceId">The instance Id of the EC2 instance to
@@ -41,14 +75,32 @@ public class EC2Wrapper
     /// the association of the Elastic IP address with an instance.</returns>
     public async Task<string> AssociateAddress(string allocationId, string instanceId)
     {
-        var request = new AssociateAddressRequest
+        try
         {
-            AllocationId = allocationId,
-            InstanceId = instanceId
-        };
+            var request = new AssociateAddressRequest
+            {
+                AllocationId = allocationId, InstanceId = instanceId
+            };
 
-        var response = await _amazonEC2.AssociateAddressAsync(request);
-        return response.AssociationId;
+            var response = await _amazonEC2.AssociateAddressAsync(request);
+            return response.AssociationId;
+        }
+        catch (AmazonEC2Exception ec2Exception)
+        {
+            if (ec2Exception.ErrorCode == "InvalidInstanceId")
+            {
+                _logger.LogError(
+                    $"InstanceId is invalid, unable to associate address. {ec2Exception.Message}");
+            }
+
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                $"An error occurred while associating the Elastic IP.: {ex.Message}");
+            throw;
+        }
     }
     // snippet-end:[EC2.dotnetv3.AssociateAddress]
 
@@ -61,21 +113,38 @@ public class EC2Wrapper
     /// <returns>A Boolean value indicating the success of the action.</returns>
     public async Task<bool> AuthorizeSecurityGroupIngress(string groupName)
     {
-        // Get the IP address for the local computer.
-        var ipAddress = await GetIpAddress();
-        Console.WriteLine($"Your IP address is: {ipAddress}");
-        var ipRanges = new List<IpRange> { new IpRange { CidrIp = $"{ipAddress}/32" } };
-        var permission = new IpPermission
+        try
         {
-            Ipv4Ranges = ipRanges,
-            IpProtocol = "tcp",
-            FromPort = 22,
-            ToPort = 22
-        };
-        var permissions = new List<IpPermission> { permission };
-        var response = await _amazonEC2.AuthorizeSecurityGroupIngressAsync(
-            new AuthorizeSecurityGroupIngressRequest(groupName, permissions));
-        return response.HttpStatusCode == HttpStatusCode.OK;
+            // Get the IP address for the local computer.
+            var ipAddress = await GetIpAddress();
+            Console.WriteLine($"Your IP address is: {ipAddress}");
+            var ipRanges =
+                new List<IpRange> { new IpRange { CidrIp = $"{ipAddress}/32" } };
+            var permission = new IpPermission
+            {
+                Ipv4Ranges = ipRanges, IpProtocol = "tcp", FromPort = 22, ToPort = 22
+            };
+            var permissions = new List<IpPermission> { permission };
+            var response = await _amazonEC2.AuthorizeSecurityGroupIngressAsync(
+                new AuthorizeSecurityGroupIngressRequest(groupName, permissions));
+            return response.HttpStatusCode == HttpStatusCode.OK;
+        }
+        catch (AmazonEC2Exception ec2Exception)
+        {
+            if (ec2Exception.ErrorCode == "InvalidPermission.Duplicate")
+            {
+                _logger.LogError(
+                    $"The ingress rule already exists. {ec2Exception.Message}");
+            }
+
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                $"An error occurred while authorizing ingress.: {ex.Message}");
+            throw;
+        }
     }
 
     /// <summary>
@@ -97,28 +166,53 @@ public class EC2Wrapper
 
     // snippet-start:[EC2.dotnetv3.CreateKeyPair]
     /// <summary>
-    /// Create an Amazon EC2 key pair.
+    /// Create an Amazon EC2 key pair with a specified name.
     /// </summary>
     /// <param name="keyPairName">The name for the new key pair.</param>
     /// <returns>The Amazon EC2 key pair created.</returns>
     public async Task<KeyPair?> CreateKeyPair(string keyPairName)
     {
-        var request = new CreateKeyPairRequest
+        try
         {
-            KeyName = keyPairName,
-        };
+            var request = new CreateKeyPairRequest { KeyName = keyPairName, };
 
-        var response = await _amazonEC2.CreateKeyPairAsync(request);
+            var response = await _amazonEC2.CreateKeyPairAsync(request);
 
-        if (response.HttpStatusCode == HttpStatusCode.OK)
-        {
             var kp = response.KeyPair;
-            return kp;
+            // Return the key pair so it can be saved if needed.
+
+            // Wait until the key pair exists.
+            int retries = 5;
+            while (retries-- > 0)
+            {
+                Console.WriteLine($"Checking for new KeyPair {keyPairName}...");
+                var keyPairs = await DescribeKeyPairs(keyPairName);
+                if (keyPairs.Any())
+                {
+                    return kp;
+                }
+
+                Thread.Sleep(5000);
+                retries--;
+            }
+            _logger.LogError($"Unable to find newly created KeyPair {keyPairName}.");
+            throw new DoesNotExistException("KeyPair not found");
         }
-        else
+        catch (AmazonEC2Exception ec2Exception)
         {
-            Console.WriteLine("Could not create key pair.");
-            return null;
+            if (ec2Exception.ErrorCode == "InvalidKeyPair.Duplicate")
+            {
+                _logger.LogError(
+                    $"A key pair called {keyPairName} already exists.");
+            }
+
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                $"An error occurred while creating the key pair.: {ex.Message}");
+            throw;
         }
     }
 
@@ -144,17 +238,49 @@ public class EC2Wrapper
 
     // snippet-start:[EC2.dotnetv3.CreateSecurityGroup]
     /// <summary>
-    /// Create an Amazon EC2 security group.
+    /// Create an Amazon EC2 security group with a specified name and description.
     /// </summary>
     /// <param name="groupName">The name for the new security group.</param>
     /// <param name="groupDescription">A description of the new security group.</param>
     /// <returns>The group Id of the new security group.</returns>
     public async Task<string> CreateSecurityGroup(string groupName, string groupDescription)
     {
-        var response = await _amazonEC2.CreateSecurityGroupAsync(
-            new CreateSecurityGroupRequest(groupName, groupDescription));
+        try
+        {
+            var response = await _amazonEC2.CreateSecurityGroupAsync(
+                new CreateSecurityGroupRequest(groupName, groupDescription));
 
-        return response.GroupId;
+            // Wait until the security group exists.
+            int retries = 5;
+            while (retries-- > 0)
+            {
+                var groups = await DescribeSecurityGroups(response.GroupId);
+                if (groups.Any())
+                {
+                    return response.GroupId;
+                }
+
+                Thread.Sleep(5000);
+                retries--;
+            }
+            _logger.LogError($"Unable to find newly created group {groupName}.");
+            throw new DoesNotExistException("security group not found");
+        }
+        catch (AmazonEC2Exception ec2Exception)
+        {
+            if (ec2Exception.ErrorCode == "ResourceAlreadyExists")
+            {
+                _logger.LogError(
+                    $"A security group with the name {groupName} already exists. {ec2Exception.Message}");
+            }
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                $"An error occurred while creating the security group.: {ex.Message}");
+            throw;
+        }
     }
 
     // snippet-end:[EC2.dotnetv3.CreateSecurityGroup]
@@ -200,6 +326,15 @@ public class EC2Wrapper
             await _amazonEC2.DeleteKeyPairAsync(new DeleteKeyPairRequest(keyPairName)).ConfigureAwait(false);
             return true;
         }
+        catch (AmazonEC2Exception ec2Exception)
+        {
+            if (ec2Exception.ErrorCode == "InvalidKeyPair.NotFound")
+            {
+                _logger.LogError($"KeyPair {keyPairName} does not exist and cannot be deleted. Please verify the key pair name and try again.");
+            }
+
+            return false;
+        }
         catch (Exception ex)
         {
             Console.WriteLine($"Couldn't delete the key pair because: {ex.Message}");
@@ -228,8 +363,28 @@ public class EC2Wrapper
     /// <returns>A Boolean value indicating the success of the action.</returns>
     public async Task<bool> DeleteSecurityGroup(string groupId)
     {
-        var response = await _amazonEC2.DeleteSecurityGroupAsync(new DeleteSecurityGroupRequest { GroupId = groupId });
-        return response.HttpStatusCode == HttpStatusCode.OK;
+        try
+        {
+            var response =
+                await _amazonEC2.DeleteSecurityGroupAsync(
+                    new DeleteSecurityGroupRequest { GroupId = groupId });
+            return response.HttpStatusCode == HttpStatusCode.OK;
+        }
+        catch (AmazonEC2Exception ec2Exception)
+        {
+            if (ec2Exception.ErrorCode == "InvalidGroup.NotFound")
+            {
+                _logger.LogError(
+                    $"Security Group {groupId} does not exist and cannot be deleted. Please verify the ID and try again.");
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Couldn't delete the security group because: {ex.Message}");
+            return false;
+        }
     }
     // snippet-end:[EC2.dotnetv3.DeleteSecurityGroup]
 
@@ -399,21 +554,43 @@ public class EC2Wrapper
     /// <returns>A list of instance type information.</returns>
     public async Task<List<InstanceTypeInfo>> DescribeInstanceTypes(ArchitectureValues architecture)
     {
-        var request = new DescribeInstanceTypesRequest();
-
-        var filters = new List<Filter>
-            { new Filter("processor-info.supported-architecture", new List<string> { architecture.ToString() }) };
-        filters.Add(new Filter("instance-type", new() { "*.micro", "*.small" }));
-
-        request.Filters = filters;
-        var instanceTypes = new List<InstanceTypeInfo>();
-
-        var paginator = _amazonEC2.Paginators.DescribeInstanceTypes(request);
-        await foreach (var instanceType in paginator.InstanceTypes)
+        try
         {
-            instanceTypes.Add(instanceType);
+            var request = new DescribeInstanceTypesRequest();
+
+            var filters = new List<Filter>
+            {
+                new Filter("processor-info.supported-architecture",
+                    new List<string> { architecture.ToString() })
+            };
+            filters.Add(new Filter("instance-type", new() { "*.micro", "*.small" }));
+
+            request.Filters = filters;
+            var instanceTypes = new List<InstanceTypeInfo>();
+
+            var paginator = _amazonEC2.Paginators.DescribeInstanceTypes(request);
+            await foreach (var instanceType in paginator.InstanceTypes)
+            {
+                instanceTypes.Add(instanceType);
+            }
+
+            return instanceTypes;
         }
-        return instanceTypes;
+        catch (AmazonEC2Exception ec2Exception)
+        {
+            if (ec2Exception.ErrorCode == "InvalidParameterValue")
+            {
+                _logger.LogError(
+                    $"Parameters are invalid. Ensure architecture and size strings conform to DescribeInstanceTypes API reference.");
+            }
+
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Couldn't delete the security group because: {ex.Message}");
+            throw;
+        }
     }
     // snippet-end:[EC2.dotnetv3.DescribeInstanceTypes]
 
