@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Ec2_Basics;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Basics;
@@ -17,12 +18,21 @@ public class EC2Basics
     public static SsmWrapper _ssmWrapper = null!;
     public static UiMethods _uiMethods = null!;
 
+    public static string associationId = null!;
+    public static string allocationId = null!;
+    public static string instanceId = null!;
+    public static string keyPairName = null!;
+    public static string groupName = null!;
+    public static string tempFileName = null!;
+    public static string secGroupId = null!;
+    public static bool isInteractive = true;
+
     /// <summary>
     /// Perform the actions defined for the Amazon EC2 Basics scenario.
     /// </summary>
     /// <param name="args">Command line arguments.</param>
     /// <returns>A Task object.</returns>
-    static async Task Main(string[] args)
+    public static async Task Main(string[] args)
     {
         // Set up dependency injection for Amazon EC2 and Amazon Simple Systems
         // Management (Amazon SSM) Service.
@@ -35,21 +45,18 @@ public class EC2Basics
             )
             .Build();
 
-        // Now the client is available for injection.
-        _ec2Wrapper = host.Services.GetRequiredService<EC2Wrapper>();
-        _ssmWrapper = host.Services.GetRequiredService<SsmWrapper>();
-        _uiMethods = new UiMethods();
+        SetUpServices(host);
 
         var uniqueName = Guid.NewGuid().ToString();
-        var keyPairName = "mvp-example-key-pair" + uniqueName;
-        var groupName = "ec2-scenario-group" + uniqueName;
+        keyPairName = "mvp-example-key-pair" + uniqueName;
+        groupName = "ec2-scenario-group" + uniqueName;
         var groupDescription = "A security group created for the EC2 Basics scenario.";
 
         try
         {
             // Start the scenario.
             _uiMethods.DisplayOverview();
-            _uiMethods.PressEnter();
+            _uiMethods.PressEnter(isInteractive);
 
             // Create the key pair.
             _uiMethods.DisplayTitle("Create RSA key pair");
@@ -58,18 +65,21 @@ public class EC2Basics
             var keyPair = await _ec2Wrapper.CreateKeyPair(keyPairName);
 
             // Save key pair information to a temporary file.
-            var tempFileName = _ec2Wrapper.SaveKeyPair(keyPair);
+            tempFileName = _ec2Wrapper.SaveKeyPair(keyPair);
 
             Console.WriteLine(
                 $"Created the key pair: {keyPair.KeyName} and saved it to: {tempFileName}");
-            string? answer;
-            do
+            string? answer = "";
+            if (isInteractive)
             {
-                Console.Write("Would you like to list your existing key pairs? ");
-                answer = Console.ReadLine();
-            } while (answer!.ToLower() != "y" && answer.ToLower() != "n");
+                do
+                {
+                    Console.Write("Would you like to list your existing key pairs? ");
+                    answer = Console.ReadLine();
+                } while (answer!.ToLower() != "y" && answer.ToLower() != "n");
+            }
 
-            if (answer == "y")
+            if (!isInteractive || answer == "y")
             {
                 // List existing key pairs.
                 _uiMethods.DisplayTitle("Existing key pairs");
@@ -84,13 +94,12 @@ public class EC2Basics
                 });
             }
 
-            _uiMethods.PressEnter();
+            _uiMethods.PressEnter(isInteractive);
 
             // Create the security group.
             Console.WriteLine(
                 "Let's create a security group to manage access to your instance.");
-            var secGroupId =
-                await _ec2Wrapper.CreateSecurityGroup(groupName, groupDescription);
+            secGroupId = await _ec2Wrapper.CreateSecurityGroup(groupName, groupDescription);
             Console.WriteLine(
                 "Let's add rules to allow all HTTP and HTTPS inbound traffic and to allow SSH only from your current IP address.");
 
@@ -102,7 +111,7 @@ public class EC2Basics
             {
                 _ec2Wrapper.DisplaySecurityGroupInfoAsync(group);
             });
-            _uiMethods.PressEnter();
+            _uiMethods.PressEnter(isInteractive);
 
             Console.WriteLine(
                 "Now we'll authorize the security group we just created so that it can");
@@ -115,11 +124,11 @@ public class EC2Basics
             {
                 _ec2Wrapper.DisplaySecurityGroupInfoAsync(group);
             });
-            _uiMethods.PressEnter();
+            _uiMethods.PressEnter(isInteractive);
 
             // Get list of available Amazon Linux 2 Amazon Machine Images (AMIs).
             var parameters =
-                await ssmMethods.GetParametersByPath(
+                await _ssmWrapper.GetParametersByPath(
                     "/aws/service/ami-amazon-linux-latest");
 
             List<string> imageIds = parameters.Select(param => param.Value).ToList();
@@ -132,15 +141,17 @@ public class EC2Basics
                 Console.WriteLine($"\t{i++}\t{image.Description}");
             });
 
-            int choice;
+            int choice = 1;
             bool validNumber = false;
-
-            do
+            if (isInteractive)
             {
-                Console.Write("Please select an image: ");
-                var selImage = Console.ReadLine();
-                validNumber = int.TryParse(selImage, out choice);
-            } while (!validNumber);
+                do
+                {
+                    Console.Write("Please select an image: ");
+                    var selImage = Console.ReadLine();
+                    validNumber = int.TryParse(selImage, out choice);
+                } while (!validNumber);
+            }
 
             var selectedImage = images[choice - 1];
 
@@ -154,30 +165,24 @@ public class EC2Basics
             {
                 Console.WriteLine($"\t{i++}\t{instanceType.InstanceType}");
             });
-
-            do
+            if (isInteractive)
             {
-                Console.Write("Please select an instance type: ");
-                var selImage = Console.ReadLine();
-                validNumber = int.TryParse(selImage, out choice);
-            } while (!validNumber);
+                do
+                {
+                    Console.Write("Please select an instance type: ");
+                    var selImage = Console.ReadLine();
+                    validNumber = int.TryParse(selImage, out choice);
+                } while (!validNumber);
+            }
 
             var selectedInstanceType = instanceTypes[choice - 1].InstanceType;
 
             // Create an EC2 instance.
             _uiMethods.DisplayTitle("Creating an EC2 Instance");
-            var instanceId = await _ec2Wrapper.RunInstances(selectedImage.ImageId,
+            instanceId = await _ec2Wrapper.RunInstances(selectedImage.ImageId,
                 selectedInstanceType, keyPairName, secGroupId);
-            Console.Write("Waiting for the instance to start.");
-            var isRunning = false;
-            do
-            {
-                isRunning =
-                    await _ec2Wrapper.WaitForInstanceState(instanceId,
-                        InstanceStateName.Running);
-            } while (!isRunning);
-
-            _uiMethods.PressEnter();
+            
+            _uiMethods.PressEnter(isInteractive);
 
             var instance = await _ec2Wrapper.DescribeInstance(instanceId);
             _uiMethods.DisplayTitle("New Instance Information");
@@ -188,33 +193,15 @@ public class EC2Basics
             Console.WriteLine(
                 $"\tssh -i {tempFileName} ec2-user@{instance.PublicIpAddress}");
 
-            _uiMethods.PressEnter();
+            _uiMethods.PressEnter(isInteractive);
 
             Console.WriteLine(
                 "Now we'll stop the instance and then start it again to see what's changed.");
 
             await _ec2Wrapper.StopInstances(instanceId);
-            var hasStopped = false;
-            do
-            {
-                hasStopped =
-                    await _ec2Wrapper.WaitForInstanceState(instanceId,
-                        InstanceStateName.Stopped);
-            } while (!hasStopped);
-
-            Console.WriteLine("\nThe instance has stopped.");
 
             Console.WriteLine("Now let's start it up again.");
             await _ec2Wrapper.StartInstances(instanceId);
-            Console.Write("Waiting for instance to start. ");
-
-            isRunning = false;
-            do
-            {
-                isRunning =
-                    await _ec2Wrapper.WaitForInstanceState(instanceId,
-                        InstanceStateName.Running);
-            } while (!isRunning);
 
             Console.WriteLine("\nLet's see what changed.");
 
@@ -226,46 +213,27 @@ public class EC2Basics
             Console.WriteLine(
                 $"\tssh -i {tempFileName} ec2-user@{instance.PublicIpAddress}");
 
-            _uiMethods.PressEnter();
+            _uiMethods.PressEnter(isInteractive);
 
             Console.WriteLine(
                 "Now we will stop the instance again. Then we will create and associate an");
             Console.WriteLine("Elastic IP address to use with our instance.");
 
             await _ec2Wrapper.StopInstances(instanceId);
-            hasStopped = false;
-            do
-            {
-                hasStopped =
-                    await _ec2Wrapper.WaitForInstanceState(instanceId,
-                        InstanceStateName.Stopped);
-            } while (!hasStopped);
-
-            Console.WriteLine("\nThe instance has stopped.");
-            _uiMethods.PressEnter();
+            _uiMethods.PressEnter(isInteractive);
 
             _uiMethods.DisplayTitle("Allocate Elastic IP address");
             Console.WriteLine(
                 "You can allocate an Elastic IP address and associate it with your instance\nto keep a consistent IP address even when your instance restarts.");
             var allocationResponse = await _ec2Wrapper.AllocateAddress();
-            var allocationId = allocationResponse.AllocationId;
+            allocationId = allocationResponse.AllocationId;
             Console.WriteLine(
                 "Now we will associate the Elastic IP address with our instance.");
-            var associationId =
-                await _ec2Wrapper.AssociateAddress(allocationId, instanceId);
+            associationId = await _ec2Wrapper.AssociateAddress(allocationId, instanceId);
 
             // Start the instance again.
             Console.WriteLine("Now let's start the instance again.");
             await _ec2Wrapper.StartInstances(instanceId);
-            Console.Write("Waiting for instance to start. ");
-
-            isRunning = false;
-            do
-            {
-                isRunning =
-                    await _ec2Wrapper.WaitForInstanceState(instanceId,
-                        InstanceStateName.Running);
-            } while (!isRunning);
 
             Console.WriteLine("\nLet's see what changed.");
 
@@ -278,37 +246,20 @@ public class EC2Basics
                 $"\tssh -i {tempFileName} ec2-user@{instance.PublicIpAddress}");
 
             Console.WriteLine("Let's stop and start the instance again.");
-            _uiMethods.PressEnter();
+            _uiMethods.PressEnter(isInteractive);
 
             await _ec2Wrapper.StopInstances(instanceId);
-
-            hasStopped = false;
-            do
-            {
-                hasStopped =
-                    await _ec2Wrapper.WaitForInstanceState(instanceId,
-                        InstanceStateName.Stopped);
-            } while (!hasStopped);
 
             Console.WriteLine("\nThe instance has stopped.");
 
             Console.WriteLine("Now let's start it up again.");
             await _ec2Wrapper.StartInstances(instanceId);
-            Console.Write("Waiting for instance to start. ");
-
-            isRunning = false;
-            do
-            {
-                isRunning =
-                    await _ec2Wrapper.WaitForInstanceState(instanceId,
-                        InstanceStateName.Running);
-            } while (!isRunning);
 
             instance = await _ec2Wrapper.DescribeInstance(instanceId);
             _uiMethods.DisplayTitle("New Instance Information");
             _ec2Wrapper.DisplayInstanceInformation(instance);
             Console.WriteLine("Note that the IP address did not change this time.");
-            _uiMethods.PressEnter();
+            _uiMethods.PressEnter(isInteractive);
 
             await Cleanup();
         }
@@ -319,61 +270,57 @@ public class EC2Basics
         }
 
         _uiMethods.DisplayTitle("EC2 Basics Scenario completed.");
-        _uiMethods.PressEnter();
+        _uiMethods.PressEnter(isInteractive);
     }
 
+    /// <summary>
+    /// Set up the services and logging.
+    /// </summary>
+    /// <param name="host"></param>
+    public static void SetUpServices(IHost host)
+    {
+        var loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.AddConsole();
+        });
+        _logger = new Logger<EC2Basics>(loggerFactory);
+
+        // Now the client is available for injection.
+        _ec2Wrapper = host.Services.GetRequiredService<EC2Wrapper>();
+        _ssmWrapper = host.Services.GetRequiredService<SsmWrapper>();
+        _uiMethods = new UiMethods();
+    }
+
+    /// <summary>
+    /// Clean up any resources from the scenario.
+    /// </summary>
+    /// <returns></returns>
     public static async Task Cleanup()
     {
-        UiMethods _uiMethods;
-        EC2Wrapper _ec2Wrapper;
-        string instanceId;
-        string associationId;
-        string allocationId;
-        string groupName;
-        string secGroupId;
-        string keyPairName;
-        string tempFileName;
-        bool success;
         _uiMethods.DisplayTitle("Clean up resources");
-
         Console.WriteLine("Now let's clean up the resources we created.");
+
+        Console.WriteLine("Disassociate the Elastic IP address and release it.");
+        // Disassociate the Elastic IP address.
+        await _ec2Wrapper.DisassociateIp(associationId);
+
+        // Delete the Elastic IP address.
+        await _ec2Wrapper.ReleaseAddress(allocationId);
 
         // Terminate the instance.
         Console.WriteLine("Terminating the instance we created.");
-        var stateChange = await _ec2Wrapper.TerminateInstances(instanceId);
-
-        // Wait for the instance state to be terminated.
-        var hasTerminated = false;
-        do
-        {
-            hasTerminated =
-                await _ec2Wrapper.WaitForInstanceState(instanceId,
-                    InstanceStateName.Terminated);
-        } while (!hasTerminated);
-
-        Console.WriteLine($"\nThe instance {instanceId} has been terminated.");
-        Console.WriteLine("Now we can disassociate the Elastic IP address and release it.");
-
-        // Disassociate the Elastic IP address.
-        var disassociated = _ec2Wrapper.DisassociateIp(associationId);
-
-        // Delete the Elastic IP address.
-        var released = _ec2Wrapper.ReleaseAddress(allocationId);
+        await _ec2Wrapper.TerminateInstances(instanceId);
 
         // Delete the security group.
         Console.WriteLine($"Deleting the Security Group: {groupName}.");
-        success = await _ec2Wrapper.DeleteSecurityGroup(secGroupId);
-        if (success)
-        {
-            Console.WriteLine($"Successfully deleted {groupName}.");
-        }
+        await _ec2Wrapper.DeleteSecurityGroup(secGroupId);
 
         // Delete the RSA key pair.
         Console.WriteLine($"Deleting the key pair: {keyPairName}");
         await _ec2Wrapper.DeleteKeyPair(keyPairName);
         Console.WriteLine("Deleting the temporary file with the key information.");
         _ec2Wrapper.DeleteTempFile(tempFileName);
-        _uiMethods.PressEnter();
+        _uiMethods.PressEnter(isInteractive);
     }
 }
 // snippet-end:[EC2.dotnetv3.Main]

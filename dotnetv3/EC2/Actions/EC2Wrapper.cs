@@ -1,7 +1,6 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 
 namespace EC2Actions;
@@ -470,79 +469,57 @@ public class EC2Wrapper
 
     // snippet-start:[EC2.dotnetv3.DescribeInstances]
     /// <summary>
-    /// Get information about existing EC2 images.
-    /// </summary>
-    /// <returns>Async task.</returns>
-    public async Task DescribeInstances()
-    {
-        // List all EC2 instances.
-        await GetInstanceDescriptions();
-
-        string tagName = "IncludeInList";
-        string tagValue = "Yes";
-        await GetInstanceDescriptionsFiltered(tagName, tagValue);
-    }
-
-    /// <summary>
-    /// Get information for all existing Amazon EC2 instances.
-    /// </summary>
-    /// <returns>Async task.</returns>
-    public async Task GetInstanceDescriptions()
-    {
-        Console.WriteLine("Showing all instances:");
-        var paginator = _amazonEC2.Paginators.DescribeInstances(new DescribeInstancesRequest());
-
-        await foreach (var response in paginator.Responses)
-        {
-            foreach (var reservation in response.Reservations)
-            {
-                foreach (var instance in reservation.Instances)
-                {
-                    Console.Write($"Instance ID: {instance.InstanceId}");
-                    Console.WriteLine($"\tCurrent State: {instance.State.Name}");
-                }
-            }
-        }
-    }
-
-    /// <summary>
-    /// Get information about EC2 instances filtered by a tag name and value.
+    /// Get information about EC2 instances with a particular state.
     /// </summary>
     /// <param name="tagName">The name of the tag to filter on.</param>
     /// <param name="tagValue">The value of the tag to look for.</param>
-    /// <returns>Async task.</returns>
-    public async Task GetInstanceDescriptionsFiltered(string tagName, string tagValue)
+    /// <returns>True if successful.</returns>
+    public async Task<bool> GetInstancesWithState(string state)
     {
-        // This tag filters the results of the instance list.
-        var filters = new List<Filter>
+        try
         {
-            new Filter
+            // Filters the results of the instance list.
+            var filters = new List<Filter>
             {
-                Name = $"tag:{tagName}",
-                Values = new List<string>
+                new Filter
                 {
-                    tagValue,
+                    Name = $"instance-state-name",
+                    Values = new List<string> { state, },
                 },
-            },
-        };
-        var request = new DescribeInstancesRequest
-        {
-            Filters = filters,
-        };
+            };
+            var request = new DescribeInstancesRequest { Filters = filters, };
 
-        Console.WriteLine("\nShowing instances with tag: \"IncludeInList\" set to \"Yes\".");
-        var paginator = _amazonEC2.Paginators.DescribeInstances(request);
+            Console.WriteLine($"\nShowing instances with state {state}");
+            var paginator = _amazonEC2.Paginators.DescribeInstances(request);
 
-        await foreach (var response in paginator.Responses)
-        {
-            foreach (var reservation in response.Reservations)
+            await foreach (var response in paginator.Responses)
             {
-                foreach (var instance in reservation.Instances)
+                foreach (var reservation in response.Reservations)
                 {
-                    Console.Write($"Instance ID: {instance.InstanceId} ");
-                    Console.WriteLine($"\tCurrent State: {instance.State.Name}");
+                    foreach (var instance in reservation.Instances)
+                    {
+                        Console.Write($"Instance ID: {instance.InstanceId} ");
+                        Console.WriteLine($"\tCurrent State: {instance.State.Name}");
+                    }
                 }
             }
+
+            return true;
+        }
+        catch (AmazonEC2Exception ec2Exception)
+        {
+            if (ec2Exception.ErrorCode == "InvalidParameterValue")
+            {
+                _logger.LogError(
+                    $"Invalid parameter value for filtering instances.");
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Couldn't list instances because: {ex.Message}");
+            return false;
         }
     }
     // snippet-end:[EC2.dotnetv3.DescribeInstances]
@@ -594,18 +571,6 @@ public class EC2Wrapper
     }
     // snippet-end:[EC2.dotnetv3.DescribeInstanceTypes]
 
-    /// <summary>
-    /// Display the instance type information returned by DescribeInstanceTypesAsync.
-    /// </summary>
-    /// <param name="instanceTypes">The list of instance type information.</param>
-    public void DisplayInstanceTypeInfo(List<InstanceTypeInfo> instanceTypes)
-    {
-        instanceTypes.ForEach(type =>
-        {
-            Console.WriteLine($"{type.InstanceType}\t{type.MemoryInfo}");
-        });
-    }
-
     // snippet-start:[EC2.dotnetv3.DescribeKeyPairs]
     /// <summary>
     /// Get information about an Amazon EC2 key pair.
@@ -614,34 +579,86 @@ public class EC2Wrapper
     /// <returns>A list of key pair information.</returns>
     public async Task<List<KeyPairInfo>> DescribeKeyPairs(string keyPairName)
     {
-        var request = new DescribeKeyPairsRequest();
-        if (!string.IsNullOrEmpty(keyPairName))
+        try
         {
-            request = new DescribeKeyPairsRequest
+            var request = new DescribeKeyPairsRequest();
+            if (!string.IsNullOrEmpty(keyPairName))
             {
-                KeyNames = new List<string> { keyPairName }
-            };
+                request = new DescribeKeyPairsRequest
+                {
+                    KeyNames = new List<string> { keyPairName }
+                };
+            }
+
+            var response = await _amazonEC2.DescribeKeyPairsAsync(request);
+            return response.KeyPairs.ToList();
         }
-        var response = await _amazonEC2.DescribeKeyPairsAsync(request);
-        return response.KeyPairs.ToList();
+        catch (AmazonEC2Exception ec2Exception)
+        {
+            if (ec2Exception.ErrorCode == "InvalidKeyPair.NotFound")
+            {
+                _logger.LogError(
+                    $"A key pair called {keyPairName} does not exist.");
+            }
+
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                $"An error occurred while describing the key pair.: {ex.Message}");
+            throw;
+        }
     }
 
     // snippet-end:[EC2.dotnetv3.DescribeKeyPairs]
 
     // snippet-start:[EC2.dotnetv3.DescribeSecurityGroups]
     /// <summary>
-    /// Retrieve information for an Amazon EC2 security group.
+    /// Retrieve information for one or all Amazon EC2 security group.
     /// </summary>
-    /// <param name="groupId">The Id of the Amazon EC2 security group.</param>
+    /// <param name="groupId">The optional Id of a specific Amazon EC2 security group.</param>
     /// <returns>A list of security group information.</returns>
     public async Task<List<SecurityGroup>> DescribeSecurityGroups(string groupId)
     {
-        var request = new DescribeSecurityGroupsRequest();
-        var groupIds = new List<string> { groupId };
-        request.GroupIds = groupIds;
+        try
+        {
+            var securityGroups = new List<SecurityGroup>();
+            var request = new DescribeSecurityGroupsRequest();
 
-        var response = await _amazonEC2.DescribeSecurityGroupsAsync(request);
-        return response.SecurityGroups;
+            if (!string.IsNullOrEmpty(groupId))
+            {
+                var groupIds = new List<string> { groupId };
+                request.GroupIds = groupIds;
+            }
+
+            var paginatorForSecurityGroups =
+                _amazonEC2.Paginators.DescribeSecurityGroups(request);
+
+            await foreach (var securityGroup in paginatorForSecurityGroups.SecurityGroups)
+            {
+                securityGroups.Add(securityGroup);
+            }
+
+            return securityGroups;
+
+        }
+        catch (AmazonEC2Exception ec2Exception)
+        {
+            if (ec2Exception.ErrorCode == "InvalidGroup.NotFound")
+            {
+                _logger.LogError(
+                    $"A security group {groupId} does not exist.");
+            }
+
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                $"An error occurred while listing security groups. {ex.Message}");
+            throw;
+        }
     }
 
     /// <summary>
@@ -698,9 +715,28 @@ public class EC2Wrapper
     /// <returns>A Boolean value indicating the success of the action.</returns>
     public async Task<bool> DisassociateIp(string associationId)
     {
-        var response = await _amazonEC2.DisassociateAddressAsync(
-            new DisassociateAddressRequest { AssociationId = associationId });
-        return response.HttpStatusCode == HttpStatusCode.OK;
+        try
+        {
+            var response = await _amazonEC2.DisassociateAddressAsync(
+                new DisassociateAddressRequest { AssociationId = associationId });
+            return response.HttpStatusCode == HttpStatusCode.OK;
+        }
+        catch (AmazonEC2Exception ec2Exception)
+        {
+            if (ec2Exception.ErrorCode == "InvalidAssociationID.NotFound")
+            {
+                _logger.LogError(
+                    $"AssociationId is invalid, unable to disassociate address. {ec2Exception.Message}");
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                $"An error occurred while disassociating the Elastic IP.: {ex.Message}");
+            return false;
+        }
     }
     // snippet-end:[EC2.dotnetv3.DisassociateAddress]
 
@@ -720,44 +756,77 @@ public class EC2Wrapper
 
     // snippet-start:[EC2.dotnetv3.RebootInstances]
     /// <summary>
-    /// Reboot EC2 instances.
+    /// Reboot a specific EC2 instance.
     /// </summary>
-    /// <param name="ec2InstanceId">The instance Id of the instances that will be rebooted.</param>
-    /// <returns>Async task.</returns>
-    public async Task RebootInstances(string ec2InstanceId)
+    /// <param name="ec2InstanceId">The instance Id of the instance that will be rebooted.</param>
+    /// <returns>Async Task.</returns>
+    public async Task<bool> RebootInstances(string ec2InstanceId)
     {
-        var request = new RebootInstancesRequest
+        try
         {
-            InstanceIds = new List<string> { ec2InstanceId },
-        };
+            var request = new RebootInstancesRequest
+            {
+                InstanceIds = new List<string> { ec2InstanceId },
+            };
 
-        var response = await _amazonEC2.RebootInstancesAsync(request);
-        if (response.HttpStatusCode == System.Net.HttpStatusCode.OK)
-        {
-            Console.WriteLine("Instances successfully rebooted.");
+            await _amazonEC2.RebootInstancesAsync(request);
+
+            // Wait for the instance to be running.
+            Console.Write("Waiting for the instance to start.");
+            await WaitForInstanceState(ec2InstanceId, InstanceStateName.Running);
+
+            return true;
         }
-        else
+        catch (AmazonEC2Exception ec2Exception)
         {
-            Console.WriteLine("Could not reboot one or more instances.");
+            if (ec2Exception.ErrorCode == "InvalidInstanceId")
+            {
+                _logger.LogError(
+                    $"InstanceId {ec2InstanceId} is invalid, unable to reboot. {ec2Exception.Message}");
+            }
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                $"An error occurred while rebooting the instance {ec2InstanceId}.: {ex.Message}");
+            return false;
         }
     }
     // snippet-end:[EC2.dotnetv3.RebootInstances]
 
     // snippet-start:[EC2.dotnetv3.ReleaseAddress]
     /// <summary>
-    /// Release an Elastic IP address.
+    /// Release an Elastic IP address. After the Elastic IP address is released,
+    /// it can no longer be used.
     /// </summary>
     /// <param name="allocationId">The allocation Id of the Elastic IP address.</param>
-    /// <returns>A Boolean value indicating the success of the action.</returns>
+    /// <returns>True if successful.</returns>
     public async Task<bool> ReleaseAddress(string allocationId)
     {
-        var request = new ReleaseAddressRequest
+        try
         {
-            AllocationId = allocationId
-        };
+            var request = new ReleaseAddressRequest { AllocationId = allocationId };
 
-        var response = await _amazonEC2.ReleaseAddressAsync(request);
-        return response.HttpStatusCode == HttpStatusCode.OK;
+            var response = await _amazonEC2.ReleaseAddressAsync(request);
+            return response.HttpStatusCode == HttpStatusCode.OK;
+        }
+        catch (AmazonEC2Exception ec2Exception)
+        {
+            if (ec2Exception.ErrorCode == "InvalidAllocationID.NotFound")
+            {
+                _logger.LogError(
+                    $"AllocationId {allocationId} was not found. {ec2Exception.Message}");
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                $"An error occurred while releasing the AllocationId {allocationId}.: {ex.Message}");
+            return false;
+        }
     }
     // snippet-end:[EC2.dotnetv3.ReleaseAddress]
 
@@ -775,17 +844,41 @@ public class EC2Wrapper
     /// <returns>The instance Id of the new EC2 instance.</returns>
     public async Task<string> RunInstances(string imageId, string instanceType, string keyName, string groupId)
     {
-        var request = new RunInstancesRequest
+        try
         {
-            ImageId = imageId,
-            InstanceType = instanceType,
-            KeyName = keyName,
-            MinCount = 1,
-            MaxCount = 1,
-            SecurityGroupIds = new List<string> { groupId }
-        };
-        var response = await _amazonEC2.RunInstancesAsync(request);
-        return response.Reservation.Instances[0].InstanceId;
+            var request = new RunInstancesRequest
+            {
+                ImageId = imageId,
+                InstanceType = instanceType,
+                KeyName = keyName,
+                MinCount = 1,
+                MaxCount = 1,
+                SecurityGroupIds = new List<string> { groupId }
+            };
+            var response = await _amazonEC2.RunInstancesAsync(request);
+            var instanceId = response.Reservation.Instances[0].InstanceId;
+
+            Console.Write("Waiting for the instance to start.");
+            await WaitForInstanceState(instanceId, InstanceStateName.Running);
+
+            return instanceId;
+        }
+        catch (AmazonEC2Exception ec2Exception)
+        {
+            if (ec2Exception.ErrorCode == "InvalidGroupId.NotFound")
+            {
+                _logger.LogError(
+                    $"GroupId {groupId} was not found. {ec2Exception.Message}");
+            }
+
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                $"An error occurred while running the instance.: {ex.Message}");
+            throw;
+        }
     }
 
     // snippet-end:[EC2.dotnetv3.RunInstances]
@@ -799,20 +892,33 @@ public class EC2Wrapper
     /// <returns>Async task.</returns>
     public async Task StartInstances(string ec2InstanceId)
     {
-        var request = new StartInstancesRequest
+        try
         {
-            InstanceIds = new List<string> { ec2InstanceId },
-        };
-
-        var response = await _amazonEC2.StartInstancesAsync(request);
-
-        if (response.StartingInstances.Count > 0)
-        {
-            var instances = response.StartingInstances;
-            instances.ForEach(i =>
+            var request = new StartInstancesRequest
             {
-                Console.WriteLine($"Successfully started the EC2 instance with instance ID: {i.InstanceId}.");
-            });
+                InstanceIds = new List<string> { ec2InstanceId },
+            };
+
+            await _amazonEC2.StartInstancesAsync(request);
+
+            Console.Write("Waiting for instance to start. ");
+            await WaitForInstanceState(ec2InstanceId, InstanceStateName.Running);
+        }
+        catch (AmazonEC2Exception ec2Exception)
+        {
+            if (ec2Exception.ErrorCode == "InvalidInstanceId")
+            {
+                _logger.LogError(
+                    $"InstanceId is invalid, unable to start. {ec2Exception.Message}");
+            }
+
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                $"An error occurred while starting the instance.: {ex.Message}");
+            throw;
         }
     }
     // snippet-end:[EC2.dotnetv3.StartInstances]
@@ -826,30 +932,34 @@ public class EC2Wrapper
     /// <returns>Async task.</returns>
     public async Task StopInstances(string ec2InstanceId)
     {
-        // In addition to the list of instance Ids, the
-        // request can also include the following properties:
-        //     Force      When true, forces the instances to
-        //                stop but you must check the integrity
-        //                of the file system. Not recommended on
-        //                Windows instances.
-        //     Hibernate  When true, hibernates the instance if the
-        //                instance was enabled for hibernation when
-        //                it was launched.
-        var request = new StopInstancesRequest
+        try
         {
-            InstanceIds = new List<string> { ec2InstanceId },
-        };
-
-        var response = await _amazonEC2.StopInstancesAsync(request);
-
-        if (response.StoppingInstances.Count > 0)
-        {
-            var instances = response.StoppingInstances;
-            instances.ForEach(i =>
+            var request = new StopInstancesRequest
             {
-                Console.WriteLine($"Successfully stopped the EC2 Instance " +
-                                  $"with InstanceID: {i.InstanceId}.");
-            });
+                InstanceIds = new List<string> { ec2InstanceId },
+            };
+
+            await _amazonEC2.StopInstancesAsync(request);
+            Console.Write("Waiting for the instance to stop.");
+            await WaitForInstanceState(ec2InstanceId, InstanceStateName.Stopped);
+
+            Console.WriteLine("\nThe instance has stopped.");
+        }
+        catch (AmazonEC2Exception ec2Exception)
+        {
+            if (ec2Exception.ErrorCode == "InvalidInstanceId")
+            {
+                _logger.LogError(
+                    $"InstanceId is invalid, unable to stop. {ec2Exception.Message}");
+            }
+
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                $"An error occurred while stopping the instance.: {ex.Message}");
+            throw;
         }
     }
     // snippet-end:[EC2.dotnetv3.StopInstances]
@@ -863,13 +973,36 @@ public class EC2Wrapper
     /// <returns>Async task.</returns>
     public async Task<List<InstanceStateChange>> TerminateInstances(string ec2InstanceId)
     {
-        var request = new TerminateInstancesRequest
+        try
         {
-            InstanceIds = new List<string> { ec2InstanceId }
-        };
+            var request = new TerminateInstancesRequest
+            {
+                InstanceIds = new List<string> { ec2InstanceId }
+            };
 
-        var response = await _amazonEC2.TerminateInstancesAsync(request);
-        return response.TerminatingInstances;
+            var response = await _amazonEC2.TerminateInstancesAsync(request);
+            Console.Write("Waiting for the instance to terminate.");
+            await WaitForInstanceState(ec2InstanceId, InstanceStateName.Terminated);
+
+            Console.WriteLine($"\nThe instance {ec2InstanceId} has been terminated.");
+            return response.TerminatingInstances;
+        }
+        catch (AmazonEC2Exception ec2Exception)
+        {
+            if (ec2Exception.ErrorCode == "InvalidInstanceId")
+            {
+                _logger.LogError(
+                    $"InstanceId is invalid, unable to terminate. {ec2Exception.Message}");
+            }
+
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                $"An error occurred while terminating the instance.: {ex.Message}");
+            throw;
+        }
     }
     // snippet-end:[EC2.dotnetv3.TerminateInstances]
 
@@ -887,7 +1020,7 @@ public class EC2Wrapper
             InstanceIds = new List<string> { instanceId }
         };
 
-        // Wait until the instance is running.
+        // Wait until the instance is in the specified state.
         var hasState = false;
         do
         {
