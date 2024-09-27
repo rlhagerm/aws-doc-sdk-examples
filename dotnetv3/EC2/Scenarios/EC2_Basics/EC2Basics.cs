@@ -116,7 +116,7 @@ public class EC2Basics
             Console.WriteLine(
                 "Now we'll authorize the security group we just created so that it can");
             Console.WriteLine("access the EC2 instances you create.");
-            var success = await _ec2Wrapper.AuthorizeSecurityGroupIngress(groupName);
+            await _ec2Wrapper.AuthorizeSecurityGroupIngress(groupName);
 
             secGroups = await _ec2Wrapper.DescribeSecurityGroups(secGroupId);
             Console.WriteLine($"Now let's look at the permissions again.");
