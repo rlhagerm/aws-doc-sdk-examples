@@ -9,6 +9,6 @@
     </para>
      <para>
         For complete source code and instructions on how to set up and run, see the full example on
-        <ulink url="https://github.com/aws/amazon-sagemaker-examples/tree/bee1bcf4b464c3d7c93161bf7821ca13792ff6ac/%20%20%20%20%20%20%20%20end_to_end_ml_lifecycle">GitHub</ulink>.
+        <ulink url="https://github.com/aws/amazon-sagemaker-examples/blob/bee1bcf4b464c3d7c93161bf7821ca13792ff6ac/%20%20%20%20%20%20%20%20end_to_end_ml_lifecycle/sm-autopilot_customer_churn.ipynb">GitHub</ulink>.
     </para>
 </block>
