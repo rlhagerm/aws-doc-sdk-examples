@@ -26,3 +26,16 @@ tributary-lite_serverless-application:
     lambda:
     dynamodb:
     api-gateway:
+tributary-lite_sagemaker:
+  title: Customer Churn Prediction with &SMlong; Autopilot
+  title_abbrev: Customer Churn Prediction
+  synopsis:  demonstrates using machine learning for customer churn prediction.
+  category: "TributaryLite"
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          block_content: tl_SagemakerCustomerChurn_Python_block.xml
+  service_main: sagemaker
+  services:
+    sagemaker:

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "file://zonbook/docbookx.dtd"[
+    <!ENTITY % phrases-shared SYSTEM "file://AWSShared/common/phrases-shared.ent">
+    %phrases-shared;
+]>
+<block>
+    <para>
+        This notebook describes using machine learning for the automated identification of unhappy customers, also known as customer churn prediction.
+    </para>
+     <para>
+        For complete source code and instructions on how to set up and run, see the full example on
+        <ulink url="https://github.com/aws/amazon-sagemaker-examples/tree/bee1bcf4b464c3d7c93161bf7821ca13792ff6ac/%20%20%20%20%20%20%20%20end_to_end_ml_lifecycle">GitHub</ulink>.
+    </para>
+</block>
