@@ -132,5 +132,11 @@ bedrock_ListFoundationModels:
             - description: List the available Bedrock foundation models.
               snippet_tags:
                 - Bedrock.dotnetv3.BedrockActions.ListFoundationModels
+        - sdk_version: 4
+          github: dotnetv4/Bedrock
+          excerpts:
+            - description: List the available Bedrock foundation models.
+              snippet_tags:
+                - Bedrock.dotnetv4.BedrockActions.ListFoundationModels
   services:
     bedrock: {ListFoundationModels}
