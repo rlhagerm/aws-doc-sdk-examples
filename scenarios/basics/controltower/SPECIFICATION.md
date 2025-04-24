@@ -91,7 +91,7 @@ TODO
 
 #### Controls
 
-Based on https://docs.aws.com/controltower/latest/controlreference/control-api-examples-short.html
+Based on https://docs.aws.amazon.com/controltower/latest/controlreference/control-api-examples-short.html
 
 - List Controls in Control Catalog
 - Enable a Control
