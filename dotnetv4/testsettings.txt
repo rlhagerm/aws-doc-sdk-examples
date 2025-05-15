@@ -1,3 +1,2 @@
 Aurora\Tests\bin\Debug\net8.0\AuroraTests.dll 
 Cloudwatch\Tests\bin\Debug\net8.0\CloudWatchTests.dll 
---logger:"trx;LogFileName=dotnetv4_results.trx"
