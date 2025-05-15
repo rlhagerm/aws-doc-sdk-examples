@@ -19,7 +19,7 @@ CMD ["vstest.console.exe", "@testsettings.txt"]
 CMD ["dotnet", "new", "tool-manifest"]
 CMD ["dotnet", "tool", "install", "DotnetWeathertopJsonReporter", "--local"]
 # Output the json file to weathertop\weathertop-report.json
-CMD ["dotnet", "tool", "run", "DotnetWeathertopJsonReporter", "-t", "TestResults/dotnet4_results.trx"
+CMD ["dotnet", "tool", "run", "DotnetWeathertopJsonReporter", "-t", "TestResults/dotnet4_results.trx"]
 
 # Old command
 # CMD ["dotnet", "test", "dotnetv4", "--filter", "Category=Unit|Category=Weathertop", "--verbosity=quiet", "/clp:ErrorsOnly", "--nologo"]
