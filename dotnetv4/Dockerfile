@@ -12,9 +12,16 @@ COPY . /dotnetv4
 
 RUN cd /dotnetv4 && dotnet build -v=q --property WarningLevel=0 /clp:ErrorsOnly --nologo
 
-# Install the test converter tool and output the json file to weathertop\weathertop-report.json
 
-CMD ["dotnet", "vstest", "--logger:trx;LogFileName=dotnetv4_results.trx", "@/dotnetv4/testsettings.txt", "&&", "dotnet", "new", "tool-manifest", "&&", "dotnet", "tool", "install", "DotnetWeathertopJsonReporter", "--local", "&&", "dotnet", "tool", "run", "DotnetWeathertopJsonReporter", "-t", "TestResults/dotnet4_results.trx"]
+# Set non-root user
+RUN useradd -m automation && \
+    chown -R automation:automation /dotnetv4
+USER automation:automation
+
+CMD ["/dotnetv4/run_tests.sh"]
+
+# Install the test converter tool and output the json file to weathertop\weathertop-report.json
+# CMD ["dotnet", "vstest", "--logger:trx;LogFileName=dotnetv4_results.trx", "@/dotnetv4/testsettings.txt", "&&", "dotnet", "new", "tool-manifest", "&&", "dotnet", "tool", "install", "DotnetWeathertopJsonReporter", "--local", "&&", "dotnet", "tool", "run", "DotnetWeathertopJsonReporter", "-t", "TestResults/dotnet4_results.trx"]
 
 # CMD ["dotnet", "test", "--logger:trx", "'@testsettings.txt'", ";", "dotnet", "new", "tool-manifest", ";", "dotnet", "tool", "install", "DotnetWeathertopJsonReporter", "--local", ";", "dotnet", "tool", "run", "DotnetWeathertopJsonReporter", "-t", "TestResults/dotnet4_results.trx"]
 
