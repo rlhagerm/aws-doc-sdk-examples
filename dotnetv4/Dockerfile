@@ -12,14 +12,8 @@ COPY . /dotnetv4
 
 RUN cd /dotnetv4 && dotnet build -v=q --property WarningLevel=0 /clp:ErrorsOnly --nologo
 
-# Run the tests from the settings file.
-CMD ["vstest.console.exe", "@testsettings.txt"]
-
-# Install the test converter tool
-CMD ["dotnet", "new", "tool-manifest"]
-CMD ["dotnet", "tool", "install", "DotnetWeathertopJsonReporter", "--local"]
-# Output the json file to weathertop\weathertop-report.json
-CMD ["dotnet", "tool", "run", "DotnetWeathertopJsonReporter", "-t", "TestResults/dotnet4_results.trx"]
+# Install the test converter tool and output the json file to weathertop\weathertop-report.json
+CMD ["vstest.console.exe", "@testsettings.txt", ";", "dotnet", "new", "tool-manifest", ";", "dotnet", "tool", "install", "DotnetWeathertopJsonReporter", "--local", ";", "dotnet", "tool", "run", "DotnetWeathertopJsonReporter", "-t", "TestResults/dotnet4_results.trx"]
 
 # Old command
 # CMD ["dotnet", "test", "dotnetv4", "--filter", "Category=Unit|Category=Weathertop", "--verbosity=quiet", "/clp:ErrorsOnly", "--nologo"]
