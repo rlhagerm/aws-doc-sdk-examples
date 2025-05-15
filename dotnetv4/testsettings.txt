@@ -1,2 +1,2 @@
 dotnetv4/Aurora/Tests/bin/Debug/net8.0/AuroraTests.dll 
-dotnetv4/Cloudwatch/Tests/bin/Debug/net8.0/CloudWatchTests.dll 
+dotnetv4/CloudWatch/Tests/bin/Debug/net8.0/CloudWatchTests.dll 
