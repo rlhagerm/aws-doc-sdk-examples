@@ -18,7 +18,7 @@ RUN useradd -m automation && \
     chown -R automation:automation /dotnetv4
 USER automation:automation
 
-CMD ["run_tests.sh"]
+CMD ["/run_tests.sh"]
 
 # Install the test converter tool and output the json file to weathertop\weathertop-report.json
 # CMD ["dotnet", "vstest", "--logger:trx;LogFileName=dotnetv4_results.trx", "@/dotnetv4/testsettings.txt", "&&", "dotnet", "new", "tool-manifest", "&&", "dotnet", "tool", "install", "DotnetWeathertopJsonReporter", "--local", "&&", "dotnet", "tool", "run", "DotnetWeathertopJsonReporter", "-t", "TestResults/dotnet4_results.trx"]
