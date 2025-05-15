@@ -14,7 +14,7 @@ RUN cd /dotnetv4 && dotnet build -v=q --property WarningLevel=0 /clp:ErrorsOnly 
 
 # Install the test converter tool and output the json file to weathertop\weathertop-report.json
 
-CMD ["dotnet", "vstest", "--logger:trx", "Aurora/Tests/bin/Debug/net8.0/AuroraTests.dll"]
+CMD ["dotnet", "vstest", "--logger:trx", "'@/dotnetv4/testsettings.txt'"]
 
 # CMD ["dotnet", "test", "--logger:trx", "'@testsettings.txt'", ";", "dotnet", "new", "tool-manifest", ";", "dotnet", "tool", "install", "DotnetWeathertopJsonReporter", "--local", ";", "dotnet", "tool", "run", "DotnetWeathertopJsonReporter", "-t", "TestResults/dotnet4_results.trx"]
 
