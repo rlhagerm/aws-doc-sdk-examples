@@ -1,18 +1,42 @@
 Parameters:
+  LoggingAccountEmail:
+    Type: String
+    Description: The email Id for centralized logging account
+  LoggingAccountName:
+    Type: String
+    Description: Name for centralized logging account
+  SecurityAccountEmail:
+    Type: String
+    Description: The email Id for security roles account
+  SecurityAccountName:
+    Type: String
+    Description: Name for security roles account
   ParentOrganizationId:
     Type: String
     Description: Parent organization ID
 Resources:
-  InfrastructureOU2:
+  InfrastructureOU:
     Type: AWS::Organizations::OrganizationalUnit
     Properties:
-      Name: Infrastructure2
+      Name: Infrastructure
       ParentId: !Ref ParentOrganizationId
-  SecurityOU2:
+  SecurityOU:
     Type: AWS::Organizations::OrganizationalUnit
     Properties:
-      Name: Security2
+      Name: Security
       ParentId: !Ref ParentOrganizationId
+  LoggingAccount:
+    Type: 'AWS::Organizations::Account'
+    Properties:
+      AccountName: !Ref LoggingAccountName
+      Email: !Ref LoggingAccountEmail
+      ParentIds: [{"Ref": "InfrastructureOU"}]
+  SecurityAccount:
+    Type: 'AWS::Organizations::Account'
+    Properties:
+      AccountName: !Ref SecurityAccountName
+      Email: !Ref SecurityAccountEmail
+      ParentIds: [{"Ref": "SecurityOU"}]
   AWSControlTowerAdmin:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -103,3 +127,15 @@ Resources:
             Effect: Allow
       Roles:
         - !Ref AWSControlTowerStackSetRole
+
+Outputs:
+  LogAccountId:
+    Value:
+      Fn::GetAtt: LoggingAccount.AccountId
+    Export:
+      Name: LogAccountId
+  SecurityAccountId:
+    Value:
+      Fn::GetAtt: SecurityAccount.AccountId
+    Export:
+      Name: SecurityAccountId

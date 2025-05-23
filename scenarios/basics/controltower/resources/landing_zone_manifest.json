@@ -1,0 +1,17 @@
+{
+   "governedRegions": ["us-east-1"],
+   "organizationStructure": {
+       "security": {
+           "name": "SecurityExample"
+       },
+       "sandbox": {
+           "name": "SandboxExample"
+       }
+   },
+   "securityRoles": {
+        "accountId": "565846806325"
+   },
+   "accessManagement": {
+        "enabled": true
+   }
+}

@@ -122,16 +122,17 @@ TODO
 The PreconditionFailed exceptions are part of the flow of this scenario. After a success or failure,
 the user can print the contents of the buckets to see the result.
 
-| action                 | Error                     | Handling                                                                |
-|------------------------|---------------------------|-------------------------------------------------------------------------|
-| `ListBaselines`        | AccessDeniedException     | Notify the user of insufficient permissions and exit.                   |
-| `SetupLandingZone`     | AccessDeniedException     | Notify the user of insufficient permissions and exit.                   |
-| `EnableBaseline`       | ResourceNotFoundException | Notify the user that the specified OU was not found and continue.       |
-| `ResetEnabledBaseline` | ResourceNotFoundException | Notify the user that the specified baseline was not found and continue. |
-| `EnableControl`        | ValidationException       | Notify the user of invalid input and prompt for retry.                  |
-| `DisableControl`       | ValidationException       | Notify the user of invalid input and prompt for retry.                  |
-| `GetControlOperation`  | ResourceNotFoundException | Notify the user that the control operation was not found and continue.  |
-| `DeleteLandingZone`    | ResourceNotFoundException | Notify the user that the specified OU was not found and continue.       |
+| action                 | Error                     | Handling                                                                    |
+|------------------------|---------------------------|-----------------------------------------------------------------------------|
+| `ListBaselines`        | AccessDeniedException     | Notify the user of insufficient permissions and exit.                       |
+| `CreateLandingZone`    | AccessDeniedException     | Notify the user of insufficient permissions and exit.                       |
+| `EnableBaseline`       | ResourceNotFoundException | Notify the user that the specified OU was not found.                        |
+| `EnableBaseline`       | ResourceNotFoundException | Notify the user that the specified Landing Zone was not found.              |
+| `ResetEnabledBaseline` | ResourceNotFoundException | Notify the user that the specified baseline was not found.                  |
+| `EnableControl`        | ResourceNotFoundException | Notify the user that the specified control was not found.                   |
+| `DisableControl`       | ResourceNotFoundException | Notify the user that the specified control was not found.                   |
+| `GetControlOperation`  | ResourceNotFoundException | Notify the user that the control was not found .                            |
+| `DeleteLandingZone`    | ResourceNotFoundException | Notify the user that the specified Landing Zone was not found and continue. |
 
 
 ---
