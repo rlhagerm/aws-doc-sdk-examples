@@ -3,7 +3,6 @@
 
 
 import logging
-import random
 import sys
 import datetime
 
@@ -18,7 +17,7 @@ import demo_tools.question as q  # noqa
 
 logger = logging.getLogger(__name__)
 
-
+# snippet-start:[python.example_code.controltower.ControlTowerScenario]
 class ControlTowerScenario:
     stack_name = ""
 
@@ -31,11 +30,15 @@ class ControlTowerScenario:
         self.cf_resource = cloudformation_resource
         self.stack = None
         self.ou_id = None
+        self.ou_arn = None
+        self.account_id = None
+        self.landing_zone_id = None
+        self.use_landing_zone = False
 
     def run_scenario(self):
         print("-" * 88)
         print(
-            "\t\tWelcome to the AWS ControlTower with ControlCatalog example scenario."
+            "\tWelcome to the AWS ControlTower with ControlCatalog example scenario."
         )
         print("-" * 88)
 
@@ -43,85 +46,131 @@ class ControlTowerScenario:
         print("managing baselines, and working with controls.")
 
         try:
-            # Set up organization and get Sandbox OU ID
-            sandbox_ou_id = self.setup_organization()
+            self.account_id = boto3.client("sts").get_caller_identity()["Account"]
 
-            # Store the OU ID for use in the CloudFormation template
-            self.ou_id = sandbox_ou_id
+            # Landing Zone Setup.
+            print("Landing Zone operations:")
 
-            # Deploy the stack.
-            cf_stack = self.deploy_stack(self.ou_id)
+            if q.ask(
+                f"Do you want to use an existing Landing Zone for this demo? (y/n) ",
+                q.is_yesno,
+            ):
+                self.use_landing_zone = True
+                self.landing_zone_id = q.ask("Enter landing zone id: ", q.non_empty)
+                # Set up organization and get Sandbox OU ID.
+                sandbox_ou_id = self.setup_organization()
 
-            # Landing Zone Setup
-            account_id = boto3.client("sts").get_caller_identity()["Account"]
-            print("\nSetting up Landing Zone")
-            manifest = self.create_landing_zone_manifest(account_id)
-            lz_response = self.controltower_wrapper.create_landing_zone(manifest)
-            print(f"Landing Zone ARN: {lz_response['landingZoneArn']}")
-            print(f"Operation ID: {lz_response['operationId']}")
+                # Store the OU ID for use in the CloudFormation template.
+                self.ou_id = sandbox_ou_id
 
-            # Wait for Landing Zone setup to complete
-            print("\nWaiting for Landing Zone setup to complete...")
-            while True:
-                status = self.controltower_wrapper.get_landing_zone_operation(
-                    lz_response['operationId'])
-                print(f"Status: {status}")
-                if status in ['SUCCEEDED', 'FAILED']:
-                    break
-                datetime.time.sleep(30)
+            else:
+                # Set up organization and get Sandbox OU ID.
+                sandbox_ou_id = self.setup_organization()
 
-            if status == 'SUCCEEDED':
-                # Enable Baseline
-                print("\nEnabling Identity Center Baseline")
-                baseline_arn = self.controltower_wrapper.enable_baseline(
-                    lz_response['landingZoneArn'],
-                    'IDENTITYCENTER'
+                # Store the OU ID for use in the CloudFormation template.
+                self.ou_id = sandbox_ou_id
+
+                # Deploy the stack.
+                self.stack = self.deploy_stack(self.ou_id)
+
+                print(f"\nTo create a new Landing Zone as part of the demo, please provide a second account ID "
+                      f"in organization {self.ou_id}.")
+                print("\nYou may skip these sections if you do not have a second account ID, or"
+                      "\n\tif you do not wish to create a Landing Zone.")
+
+                create_landing_zone = q.ask(
+                    f"Do you want to proceed with the Landing Zone creation operations? (y/n) ",
+                    q.is_yesno,
                 )
-                print(f"Enabled baseline ARN: {baseline_arn}")
+                if create_landing_zone:
+                    print("\nSetting up Landing Zone")
+                    second_account_id = q.ask("Enter a secondary account id: ", q.non_empty)
+                    manifest = self.create_landing_zone_manifest(self.account_id, second_account_id)
+                    lz_response = self.controltower_wrapper.create_landing_zone(manifest)
+                    if lz_response:
+                        self.landing_zone_id = lz_response['arn']
+                        print(f"Landing Zone ARN: {lz_response['arn']}")
+                        print(f"Operation ID: {lz_response['operationId']}")
 
-                # List and Enable Controls
-                print("\nManaging Controls")
-                controls = self.controltower_wrapper.list_controls()
-                print("\nAvailable Controls:")
-                for i, control in enumerate(controls[:5], 1):
-                    print(f"{i}. {control['controlName']}")
-
-                if controls:
-                    # Enable first control as an example.
-                    control_arn = controls[0]['controlArn']
-                    target_ou = self.get_organization_unit_arn()  # You'll need to implement this
-
-                    print(f"\nEnabling control: {controls[0]['controlName']}")
-                    operation_id = self.controltower_wrapper.enable_control(
-                        control_arn, target_ou)
-
-                    # Wait for control operation to complete.
+                    # Wait for Landing Zone setup to complete.
+                    print("\nWaiting for Landing Zone setup to complete...")
                     while True:
-                        status = self.controltower_wrapper.get_control_operation(operation_id)
-                        print(f"Control operation status: {status}")
+                        status = self.controltower_wrapper.get_landing_zone_operation(
+                            lz_response['operationIdentifier'])
+                        print(f"Status: {status}")
                         if status in ['SUCCEEDED', 'FAILED']:
                             break
                         datetime.time.sleep(30)
 
                     if status == 'SUCCEEDED':
-                        # Disable the control
-                        print("\nDisabling the control...")
-                        operation_id = self.controltower_wrapper.disable_control(
-                            control_arn, target_ou)
-                        print(f"Disable operation ID: {operation_id}")
+                        print("\nLanding zone succeeded.")
+                        self.use_landing_zone = True
 
-            print("\t\tThis concludes the scenario.")
+            # List and Enable Baseline.
+            control_tower_baseline = None
+            baselines = self.controltower_wrapper.list_baselines()
+            print("\nListing available Baselines:")
+            for baseline in baselines:
+                if baseline['name'] == 'AWSControlTowerBaseline':
+                    control_tower_baseline = baseline
+                print(f"{baseline['name']}")
+
+            if self.use_landing_zone:
+                print("\nEnabling Control Tower Baseline")
+                baseline_arn = self.controltower_wrapper.enable_baseline(
+                    self.ou_arn,
+                    control_tower_baseline['arn'],
+                    '4.0'
+                )
+                print(f"Enabled baseline ARN: {baseline_arn}")
+
+            # List and Enable Controls.
+            print("Managing Controls:")
+            controls = self.controltower_wrapper.list_controls()
+            print("\nListing first 5 available Controls:")
+            for i, control in enumerate(controls[:5], 1):
+                print(f"{i}. {control['Name']}")
+
+            if self.use_landing_zone:
+                # Enable first control as an example.
+                control_arn = controls[0]['Arn']
+                target_ou = self.ou_arn
+
+                print(f"\nEnabling control: {controls[0]['Name']} {control_arn}")
+                operation_id = self.controltower_wrapper.enable_control(
+                    control_arn, target_ou)
+
+                # Wait for control operation to complete.
+                while True:
+                    status = self.controltower_wrapper.get_control_operation(operation_id)
+                    print(f"Control operation status: {status}")
+                    if status in ['SUCCEEDED', 'FAILED']:
+                        break
+                    datetime.time.sleep(30)
+
+                if status == 'SUCCEEDED':
+                    # Disable the control.
+                    print("\nDisabling the control...")
+                    operation_id = self.controltower_wrapper.disable_control(
+                        control_arn, target_ou)
+                    print(f"Disable operation ID: {operation_id}")
+
+            print("This concludes the scenario.")
             if q.ask(
-                    f"\t\tClean up resources created by the scenario? (y/n) ",
+                    f"Clean up resources created by the scenario? (y/n) ",
                     q.is_yesno,
             ):
-                self.destroy_stack(cf_stack)
-                print("\t\tRemoved resources created by the scenario.")
-            print("\t\tThanks for watching!")
+                self.destroy_resources(self.stack, self.landing_zone_id)
+                print("Removed resources created by the scenario.")
+            print("Thanks for watching!")
             print("-" * 88)
         except Exception:
             logging.exception("Something went wrong with the demo!")
-            self.destroy_stack(cf_stack)
+            if q.ask(
+                    f"Clean up resources created by the scenario? (y/n) ",
+                    q.is_yesno,
+            ):
+                self.destroy_resources(self.stack, self.landing_zone_id)
 
     def setup_organization(self):
         """
@@ -149,7 +198,7 @@ class ControlTowerScenario:
                     org_id = create_response['Organization']['Id']
                     print(f"Created new organization: {org_id}")
 
-                    # Wait for organization to be available
+                    # Wait for organization to be available.
                     waiter = org_client.get_waiter('organization_active')
                     waiter.wait(
                         Organization=org_id,
@@ -171,29 +220,30 @@ class ControlTowerScenario:
                 )
                 raise
 
-        # Look for Sandbox OU
+        # Look for Sandbox OU.
         sandbox_ou_id = None
         paginator = org_client.get_paginator('list_organizational_units_for_parent')
 
         try:
-            # Get root ID first
+            # Get root ID first.
             roots = org_client.list_roots()['Roots']
             if not roots:
                 raise ValueError("No root found in organization")
             root_id = roots[0]['Id']
 
-            # Search for existing Sandbox OU
+            # Search for existing Sandbox OU.
             print("Checking for Sandbox OU...")
             for page in paginator.paginate(ParentId=root_id):
                 for ou in page['OrganizationalUnits']:
                     if ou['Name'] == 'Sandbox':
                         sandbox_ou_id = ou['Id']
+                        self.ou_arn = ou['Arn']
                         print(f"Found existing Sandbox OU: {sandbox_ou_id}")
                         break
                 if sandbox_ou_id:
                     break
 
-            # Create Sandbox OU if it doesn't exist
+            # Create Sandbox OU if it doesn't exist.
             if not sandbox_ou_id:
                 print("Creating Sandbox OU...")
                 create_ou_response = org_client.create_organizational_unit(
@@ -203,7 +253,7 @@ class ControlTowerScenario:
                 sandbox_ou_id = create_ou_response['OrganizationalUnit']['Id']
                 print(f"Created new Sandbox OU: {sandbox_ou_id}")
 
-                # Wait for OU to be available
+                # Wait for OU to be available.
                 waiter = org_client.get_waiter('organizational_unit_active')
                 waiter.wait(
                     OrganizationalUnitId=sandbox_ou_id,
@@ -225,6 +275,8 @@ class ControlTowerScenario:
         Deploys prerequisite resources used by the scenario. The resources are
         defined in the associated `setup.yaml` AWS CloudFormation script and are deployed
         as a CloudFormation stack, so they can be easily managed and destroyed.
+
+        :param sandbox_ou_id: The id of a sandbox organizational unit.
         """
 
         print("Let's deploy the stack for resource creation.")
@@ -252,21 +304,18 @@ class ControlTowerScenario:
         stack.load()
         print(f"Stack status: {stack.stack_status}")
 
-        '''
-        outputs_dictionary = {
-            output["OutputKey"]: output["OutputValue"] for output in stack.outputs
-        }
-        self.log_account_id = outputs_dictionary["LogAccountId"]
-        self.security_account_id = outputs_dictionary["SecurityAccountId"]
-        '''
         return stack
 
-    def create_landing_zone_manifest(self, account_id: str):
+    # snippet-start:[python.example_code.controltower.LandingZoneManifest]
+    def create_landing_zone_manifest(self, account_id: str, second_account_id: str):
         """
-        Creates a landing zone manifest based on the CloudFormation outputs.
+        Creates a landing zone manifest with the specified account ids.
+
+        :param account_id: The id of the current account.
+        :param second_account_id: The id of a second account. The landing zone manifest requires two different accounts.
         """
 
-        # Create and return manifest structure
+        # Create and return manifest structure.
         return {
             "governedRegions": ["us-east-1"],
             "organizationStructure": {
@@ -278,13 +327,13 @@ class ControlTowerScenario:
                 }
             },
             "securityRoles": {
-                "accountId": "565846806325"
+                "accountId": f"{account_id}"
             },
             "accessManagement": {
                 "enabled": True
             },
             "centralizedLogging": {
-                "accountId": "852843827772",
+                "accountId": f"{second_account_id}",
                 "configurations": {
                     "loggingBucket": {
                         "retentionDays": 60
@@ -297,22 +346,33 @@ class ControlTowerScenario:
             }
         }
 
-    def destroy_stack(self, stack):
+    # snippet-end:[python.example_code.controltower.LandingZoneManifest]
+
+    def destroy_resources(self, stack, landing_zone_identifier):
         """
         Destroys the resources managed by the CloudFormation stack, and the CloudFormation
         stack itself.
 
         :param stack: The CloudFormation stack that manages the example resources.
+        :param landing_zone_identifier: The landing zone identifier.
         """
 
-        print(f"Cleaning up resources and {stack.name}.")
+        print(f"Cleaning up resources.")
 
-        print(f"Deleting {stack.name}.")
-        stack.delete()
-        print("Waiting for stack removal. This may take a few minutes.")
-        waiter = self.cf_resource.meta.client.get_waiter("stack_delete_complete")
-        waiter.wait(StackName=stack.name)
-        print("Stack delete complete.")
+        if landing_zone_identifier:
+            if q.ask(
+                f"Do you want to clean up landing zone {landing_zone_identifier}? (y/n) ",
+                q.is_yesno,
+            ):
+                self.controltower_wrapper.delete_landing_zone(landing_zone_identifier)
+
+        if stack:
+            print(f"Deleting {stack.name}.")
+            stack.delete()
+            print("Waiting for stack removal. This may take a few minutes.")
+            waiter = self.cf_resource.meta.client.get_waiter("stack_delete_complete")
+            waiter.wait(StackName=stack.name)
+            print("Stack delete complete.")
 
 
 if __name__ == "__main__":
@@ -324,3 +384,4 @@ if __name__ == "__main__":
         scenario.run_scenario()
     except Exception:
         logging.exception("Something went wrong with the scenario.")
+# snippet-end:[python.example_code.controltower.ControlTowerScenario]

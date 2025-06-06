@@ -47,16 +47,14 @@ class ControlTowerWrapper:
                 manifest=manifest,
                 version='3.3'
             )
-            return {
-                'landingZoneArn': response['arn'],
-                'operationId': response['operationIdentifier']
-            }
+            return response
         except self.controltower_client.exceptions.AccessDeniedException:
             print("Access denied. Please ensure you have the necessary permissions.")
-        except self.controltower_client.exceptions.ValidationException:
-            print("Deleting landing zone")
-            # self.delete_landing_zone('2H7ZJD2DKK6SI06O')
+       # except self.controltower_client.exceptions.ValidationException:
+        #    print("Deleting landing zone")
+        #    raise
         except ClientError as err:
+            print(err)
             logger.error(
                 "Couldn't set up landing zone. Here's why: %s: %s",
                 err.response["Error"]["Code"],
@@ -91,24 +89,51 @@ class ControlTowerWrapper:
 
     # snippet-end:[python.example_code.controltower.DeleteLandingZone]
 
-    # snippet-start:[python.example_code.controltower.EnableBaseline]
-    def enable_baseline(self, landing_zone_arn, baseline_type):
+    # snippet-start:[python.example_code.controltower.ListBaselines]
+    def list_baselines(self):
         """
-        Enables a baseline for the landing zone.
+        Lists all baselines.
 
-        :param landing_zone_arn: The ARN of the landing zone.
-        :param baseline_type: The type of baseline to enable.
+        :return: List of baselines.
+        :raises ClientError: If the listing operation fails.
+        """
+        try:
+            paginator = self.controltower_client.get_paginator('list_baselines')
+            baselines = []
+            for page in paginator.paginate():
+                baselines.extend(page['baselines'])
+            return baselines
+
+        except ClientError as err:
+            logger.error(
+                "Couldn't list baselines. Here's why: %s: %s",
+                err.response["Error"]["Code"],
+                err.response["Error"]["Message"]
+            )
+            raise
+
+    # snippet-end:[python.example_code.controltower.ListBaselines]
+
+    # snippet-start:[python.example_code.controltower.EnableBaseline]
+    def enable_baseline(self, target_identifier, baseline_identifier, baseline_version):
+        """
+        Enables a baseline for the specified target.
+
+        :param target_identifier: The ARN of the target.
+        :param baseline_identifier: The identifier of baseline to enable.
+        :param baseline_version: The version of baseline to enable.
         :return: The enabled baseline ARN.
         :raises ClientError: If enabling the baseline fails.
         """
         try:
             response = self.controltower_client.enable_baseline(
-                landingZoneArn=landing_zone_arn,
-                baselineType=baseline_type
+                baselineIdentifier=baseline_identifier,
+                baselineVersion=baseline_version,
+                targetIdentifier=target_identifier
             )
-            return response['baselineArn']
-        except self.controltower_client.exceptions.ResourceNotFoundException:
-            print("Landing zone not found.")
+            return response['arn']
+        except self.controltower_client.exceptions.resource:
+            print("Target not found.")
         except ClientError as err:
             logger.error(
                 "Couldn't enable baseline. Here's why: %s: %s",
@@ -131,7 +156,7 @@ class ControlTowerWrapper:
             paginator = self.controlcatalog_client.get_paginator('list_controls')
             controls = []
             for page in paginator.paginate():
-                controls.extend(page['controls'])
+                controls.extend(page['Controls'])
             return controls
 
         except ClientError as err:
@@ -155,8 +180,10 @@ class ControlTowerWrapper:
         :raises ClientError: If enabling the control fails.
         """
         try:
+            print(control_arn)
+            print(target_identifier)
             response = self.controltower_client.enable_control(
-                controlArn=control_arn,
+                controlIdentifier=control_arn,
                 targetIdentifier=target_identifier
             )
             return response['operationId']
@@ -184,7 +211,7 @@ class ControlTowerWrapper:
         """
         try:
             response = self.controltower_client.get_control_operation(
-                operationId=operation_id
+                operationIdentifier=operation_id
             )
             return response['status']
         except self.controltower_client.exceptions.ResourceNotFoundException:
@@ -238,7 +265,7 @@ class ControlTowerWrapper:
         """
         try:
             response = self.controltower_client.get_landing_zone_operation(
-                operationId=operation_id
+                operationIdentifier=operation_id
             )
             return response['status']
         except self.controltower_client.exceptions.ResourceNotFoundException:
