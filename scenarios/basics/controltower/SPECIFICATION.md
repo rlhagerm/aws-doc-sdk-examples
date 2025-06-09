@@ -119,35 +119,38 @@ TODO
 ---
 
 ## Errors
-The PreconditionFailed exceptions are part of the flow of this scenario. After a success or failure,
-the user can print the contents of the buckets to see the result.
+The following errors are handled in the Control Tower wrapper class:
 
-| action                 | Error                     | Handling                                                                    |
-|------------------------|---------------------------|-----------------------------------------------------------------------------|
-| `ListBaselines`        | AccessDeniedException     | Notify the user of insufficient permissions and exit.                       |
-| `CreateLandingZone`    | AccessDeniedException     | Notify the user of insufficient permissions and exit.                       |
-| `EnableBaseline`       | ResourceNotFoundException | Notify the user that the specified OU was not found.                        |
-| `EnableBaseline`       | ResourceNotFoundException | Notify the user that the specified Landing Zone was not found.              |
-| `ResetEnabledBaseline` | ResourceNotFoundException | Notify the user that the specified baseline was not found.                  |
-| `EnableControl`        | ResourceNotFoundException | Notify the user that the specified control was not found.                   |
-| `DisableControl`       | ResourceNotFoundException | Notify the user that the specified control was not found.                   |
-| `GetControlOperation`  | ResourceNotFoundException | Notify the user that the control was not found .                            |
-| `DeleteLandingZone`    | ResourceNotFoundException | Notify the user that the specified Landing Zone was not found and continue. |
+| action                   | Error                     | Handling                                                                    |
+|--------------------------|---------------------------|-----------------------------------------------------------------------------|
+| `CreateLandingZone`      | AccessDeniedException     | Notify the user of insufficient permissions and exit.                       |
+| `DeleteLandingZone`      | ResourceNotFoundException | Notify the user that the landing zone was not found.                        |
+| `ListBaselines`          | AccessDeniedException     | Notify the user of insufficient permissions and exit.                       |
+| `EnableBaseline`         | ValidationException       | Handle case where baseline is already enabled and return None.              |
+| `ListControls`           | AccessDeniedException     | Notify the user of insufficient permissions and exit.                       |
+| `EnableControl`          | ValidationException       | Handle case where control is already enabled and return None.               |
+| `GetControlOperation`    | ResourceNotFound          | Notify the user that the control operation was not found.                   |
+| `DisableControl`         | ResourceNotFound          | Notify the user that the control was not found.                             | 
+| `GetLandingZoneOperation`| ResourceNotFound          | Notify the user that the landing zone operation was not found and re-raise. |
+| `ListLandingZones`       | AccessDeniedException     | Notify the user of insufficient permissions and exit.                       |
 
 
 ---
 
 ## Metadata
 
-| action / scenario               | metadata file              | metadata key                      |
-|---------------------------------|----------------------------|-----------------------------------|
-| `ListBaselines`                 | controltower_metadata.yaml | controltower_Hello                |
-| `SetupLandingZone`              | controltower_metadata.yaml | controltower_SetupLandingZone     |
-| `EnableBaseline`                | controltower_metadata.yaml | controltower_EnableBaseline       |
-| `ResetEnabledBaseline`          | controltower_metadata.yaml | controltower_ResetEnabledBaseline |
-| `EnableControl`                 | controltower_metadata.yaml | controltower_EnableControl        |
-| `GetControlOperation`           | controltower_metadata.yaml | controltower_GetControlOperation  |
-| `DisableControl`                | controltower_metadata.yaml | controltower_DisableControl       |
-| `DeleteLandingZone`             | controltower_metadata.yaml | controltower_DeleteLandingZone    |
-| `Control Tower Basics Scenario` | controltower_metadata.yaml | controltower_Basics_Scenario      |
+| action / scenario               | metadata file              | metadata key                         |
+|---------------------------------|----------------------------|--------------------------------------|
+| `ListBaselines`                 | controltower_metadata.yaml | controltower_Hello                   |
+| `SetupLandingZone`              | controltower_metadata.yaml | controltower_SetupLandingZone        |
+| `DeleteLandingZone`             | controltower_metadata.yaml | controltower_DeleteLandingZone       |
+| `ListBaselines`                 | controltower_metadata.yaml | controltower_ListBaselines           |
+| `EnableBaseline`                | controltower_metadata.yaml | controltower_EnableBaseline          |
+| `EnableControl`                 | controltower_metadata.yaml | controltower_EnableControl           |
+| `GetControlOperation`           | controltower_metadata.yaml | controltower_GetControlOperation     |
+| `DisableControl`                | controltower_metadata.yaml | controltower_DisableControl          |
+| `GetLandingZoneOperation`       | controltower_metadata.yaml | controltower_GetLandingZoneOperation |
+| `ListLandingZones`              | controltower_metadata.yaml | controltower_ListLandingZones        |
+| `LandingZoneManifest`           | controltower_metadata.yaml | controltower_LandingZoneManifest     |
+| `Control Tower Basics Scenario` | controltower_metadata.yaml | controltower_Scenario                |
 
