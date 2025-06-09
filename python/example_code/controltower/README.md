@@ -1,13 +1,13 @@
-# Amazon Cognito Identity Provider code examples for the SDK for Python
+# AWS Control Tower code examples for the SDK for Python
 
 ## Overview
 
-Shows how to use the AWS SDK for Python (Boto3) to work with Amazon Cognito Identity Provider.
+Shows how to use the AWS SDK for Python (Boto3) to work with AWS Control Tower.
 
 <!--custom.overview.start-->
 <!--custom.overview.end-->
 
-_Amazon Cognito Identity Provider handles user authentication and authorization for your web and mobile apps._
+_AWS Control Tower enables you to enforce and manage governance rules for security, operations, and compliance at scale across all your organizations and accounts._
 
 ## ⚠ Important
 
@@ -36,32 +36,29 @@ python -m pip install -r requirements.txt
 
 ### Get started
 
-- [Hello Amazon Cognito Identity Provider](hello/hello_cognito.py#L4) (`ListUserPools`)
+- [Hello AWS Control Tower](hello/hello_controltower.py#L4) (`ListBaselines`)
+
+
+### Basics
+
+Code examples that show you how to perform the essential operations within a service.
+
+- [Learn the basics](scenario_controltower.py)
 
 
 ### Single actions
 
 Code excerpts that show you how to call individual service functions.
 
-- [AdminGetUser](cognito_idp_actions.py#L56)
-- [AdminInitiateAuth](cognito_idp_actions.py#L187)
-- [AdminRespondToAuthChallenge](cognito_idp_actions.py#L292)
-- [AssociateSoftwareToken](cognito_idp_actions.py#L241)
-- [ConfirmDevice](cognito_idp_actions.py#L342)
-- [ConfirmSignUp](cognito_idp_actions.py#L131)
-- [InitiateAuth](cognito_idp_actions.py#L407)
-- [ListUsers](cognito_idp_actions.py#L164)
-- [ResendConfirmationCode](cognito_idp_actions.py#L104)
-- [RespondToAuthChallenge](cognito_idp_actions.py#L408)
-- [SignUp](cognito_idp_actions.py#L56)
-- [VerifySoftwareToken](cognito_idp_actions.py#L265)
-
-### Scenarios
-
-Code examples that show you how to accomplish a specific task by calling multiple
-functions within the same service.
-
-- [Sign up a user with a user pool that requires MFA](cognito_idp_actions.py)
+- [CreateLandingZone](controltower_wrapper.py#L13)
+- [DeleteLandingZone](controltower_wrapper.py#L67)
+- [DisableControl](controltower_wrapper.py#L232)
+- [EnableBaseline](controltower_wrapper.py#L117)
+- [EnableControl](controltower_wrapper.py#L172)
+- [GetControlOperation](controltower_wrapper.py#L206)
+- [GetLandingZoneOperation](controltower_wrapper.py#L260)
+- [ListBaselines](controltower_wrapper.py#L92)
+- [ListLandingZones](controltower_wrapper.py#L287)
 
 
 <!--custom.examples.start-->
@@ -75,44 +72,37 @@ functions within the same service.
 <!--custom.instructions.start-->
 <!--custom.instructions.end-->
 
-#### Hello Amazon Cognito Identity Provider
+#### Hello AWS Control Tower
 
-This example shows you how to get started using Amazon Cognito Identity Provider.
+This example shows you how to get started using AWS Control Tower.
 
 ```
-python hello/hello_cognito.py
+python hello/hello_controltower.py
 ```
 
-
-#### Sign up a user with a user pool that requires MFA
+#### Learn the basics
 
 This example shows you how to do the following:
 
-- Sign up and confirm a user with a username, password, and email address.
-- Set up multi-factor authentication by associating an MFA application with the user.
-- Sign in by using a password and an MFA code.
+- Set up a landing zone.
+- List and enable baselines.
+- List and enable controls.
+- Disable controls.
+- Delete a landing zone.
 
-<!--custom.scenario_prereqs.cognito-identity-provider_Scenario_SignUpUserWithMfa.start-->
-This scenario requires the following resources:
-
-* An existing Amazon Cognito user pool that is configured to allow self sign-up.
-* A client ID to use for authenticating with Amazon Cognito.
-
-To create these resources, run the AWS CloudFormation script in the
-[resources/cdk/cognito_scenario_user_pool_with_mfa](../../../resources/cdk/cognito_scenario_user_pool_with_mfa)
-folder. This script outputs a user pool ID and a client ID that you can use to run
-the scenario.
-<!--custom.scenario_prereqs.cognito-identity-provider_Scenario_SignUpUserWithMfa.end-->
+<!--custom.basic_prereqs.controltower_Scenario.start-->
+<!--custom.basic_prereqs.controltower_Scenario.end-->
 
 Start the example by running the following at a command prompt:
 
 ```
-python cognito_idp_actions.py
+python scenario_controltower.py
 ```
 
 
-<!--custom.scenarios.cognito-identity-provider_Scenario_SignUpUserWithMfa.start-->
-<!--custom.scenarios.cognito-identity-provider_Scenario_SignUpUserWithMfa.end-->
+<!--custom.basics.controltower_Scenario.start-->
+<!--custom.basics.controltower_Scenario.end-->
+
 
 ### Tests
 
@@ -129,9 +119,9 @@ in the `python` folder.
 
 ## Additional resources
 
-- [Amazon Cognito Identity Provider Developer Guide](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-identity-pools.html)
-- [Amazon Cognito Identity Provider API Reference](https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/Welcome.html)
-- [SDK for Python Amazon Cognito Identity Provider reference](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp.html)
+- [AWS Control Tower User Guide](https://docs.aws.amazon.com/controltower/latest/userguide/what-is-control-tower.html)
+- [AWS Control Tower API Reference](https://docs.aws.amazon.com/controltower/latest/APIReference/Welcome.html)
+- [SDK for Python AWS Control Tower reference](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp.html)
 
 <!--custom.resources.start-->
 <!--custom.resources.end-->
