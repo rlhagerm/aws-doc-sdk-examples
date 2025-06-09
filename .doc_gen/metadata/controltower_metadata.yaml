@@ -1,7 +1,7 @@
 controltower_Hello:
-  title: Hello &CTlong;
-  title_abbrev: Hello &CT;
-  synopsis: get started using &CT;.
+  title: Hello &CTowerlong;
+  title_abbrev: Hello &CTower;
+  synopsis: get started using &CTower;.
   category: Hello
   languages:
     Python:
@@ -158,7 +158,7 @@ controltower_Scenario:
           github: python/example_code/controltower
           sdkguide:
           excerpts:
-            - description: Run an interactive scenario demonstrating &CTlong; features.
+            - description: Run an interactive scenario demonstrating &CTowerlong; features.
               snippet_tags:
                 - python.example_code.controltower.ControlTowerScenario
                 - python.example_code.controltower.ControlTowerWrapper.class
