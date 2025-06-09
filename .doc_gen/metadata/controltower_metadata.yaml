@@ -1,0 +1,195 @@
+controltower_Hello:
+  title: Hello &CTlong;
+  title_abbrev: Hello &CT;
+  synopsis: get started using &CT;.
+  category: Hello
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/controltower
+          excerpts:
+            - description:
+              snippet_tags:
+                - python.example_code.controltower.Hello
+  services:
+    controltower: {ListBaselines}
+
+controltower_ControlTowerWrapper:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/controltower
+          excerpts:
+            - description: Define a class that wraps AWS Control Tower and Control Catalog functionality.
+              snippet_tags:
+                - python.example_code.controltower.ControlTowerWrapper.class
+            - description: Define the class and constructor.
+              snippet_tags:
+                - python.example_code.controltower.ControlTowerWrapper.decl
+
+controltower_SetupLandingZone:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/controltower
+          excerpts:
+            - description:
+              snippet_tags:
+                - python.example_code.controltower.SetupLandingZone
+  services:
+    controltower: {CreateLandingZone}
+
+controltower_DeleteLandingZone:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/controltower
+          excerpts:
+            - description:
+              snippet_tags:
+                - python.example_code.controltower.DeleteLandingZone
+  services:
+    controltower: {DeleteLandingZone}
+
+controltower_ListBaselines:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/controltower
+          excerpts:
+            - description:
+              snippet_tags:
+                - python.example_code.controltower.ListBaselines
+  services:
+    controltower: {ListBaselines}
+
+controltower_EnableBaseline:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/controltower
+          excerpts:
+            - description:
+              snippet_tags:
+                - python.example_code.controltower.EnableBaseline
+  services:
+    controltower: {EnableBaseline}
+
+controltower_ListControls:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/controltower
+          excerpts:
+            - description:
+              snippet_tags:
+                - python.example_code.controltower.ListControls
+  services:
+    controlcatalog: {ListControls}
+
+controltower_EnableControl:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/controltower
+          excerpts:
+            - description:
+              snippet_tags:
+                - python.example_code.controltower.EnableControl
+  services:
+    controltower: {EnableControl}
+
+controltower_GetControlOperation:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/controltower
+          excerpts:
+            - description:
+              snippet_tags:
+                - python.example_code.controltower.GetControlOperation
+  services:
+    controltower: {GetControlOperation}
+
+controltower_DisableControl:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/controltower
+          excerpts:
+            - description:
+              snippet_tags:
+                - python.example_code.controltower.DisableControl
+  services:
+    controltower: {DisableControl}
+
+controltower_GetLandingZoneOperation:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/controltower
+          excerpts:
+            - description:
+              snippet_tags:
+                - python.example_code.controltower.GetLandingZoneOperation
+  services:
+    controltower: {GetLandingZoneOperation}
+
+controltower_ListLandingZones:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/controltower
+          excerpts:
+            - description:
+              snippet_tags:
+                - python.example_code.controltower.ListLandingZones
+  services:
+    controltower: {ListLandingZones}
+
+controltower_LandingZoneManifest:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/controltower
+          excerpts:
+            - description:
+              snippet_tags:
+                - python.example_code.controltower.LandingZoneManifest
+  services:
+    controltower: {CreateLandingZone}
+
+controltower_Scenario:
+  synopsis_list:
+    - Set up an AWS Control Tower landing zone.
+    - List and enable baselines.
+    - List and enable controls.
+    - Disable controls.
+    - Delete a landing zone.
+  category: Basics
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/controltower
+          sdkguide:
+          excerpts:
+            - description: Run an interactive scenario demonstrating AWS Control Tower features.
+              snippet_tags:
+                - python.example_code.controltower.ControlTowerScenario
+  services:
+    controltower: {CreateLandingZone, DeleteLandingZone, ListBaselines, EnableBaseline, EnableControl, GetControlOperation, DisableControl, GetLandingZoneOperation, ListLandingZones}
+    controlcatalog: {ListControls}

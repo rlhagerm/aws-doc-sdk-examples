@@ -117,13 +117,13 @@ class ControlTowerWrapper:
     # snippet-start:[python.example_code.controltower.EnableBaseline]
     def enable_baseline(self, target_identifier, baseline_identifier, baseline_version):
         """
-        Enables a baseline for the specified target.
+        Enables a baseline for the specified target if it's not already enabled.
 
         :param target_identifier: The ARN of the target.
         :param baseline_identifier: The identifier of baseline to enable.
         :param baseline_version: The version of baseline to enable.
-        :return: The enabled baseline ARN.
-        :raises ClientError: If enabling the baseline fails.
+        :return: The enabled baseline ARN or None if already enabled.
+        :raises ClientError: If enabling the baseline fails for reasons other than it being already enabled.
         """
         try:
             response = self.controltower_client.enable_baseline(
@@ -132,16 +132,16 @@ class ControlTowerWrapper:
                 targetIdentifier=target_identifier
             )
             return response['arn']
-        except self.controltower_client.exceptions.resource:
-            print("Target not found.")
         except ClientError as err:
+            if err.response["Error"]["Code"] == "ValidationException" and "already enabled" in err.response["Error"]["Message"]:
+                logger.info("Baseline is already enabled for this target")
+                return None
             logger.error(
                 "Couldn't enable baseline. Here's why: %s: %s",
                 err.response["Error"]["Code"],
                 err.response["Error"]["Message"]
             )
             raise
-
     # snippet-end:[python.example_code.controltower.EnableBaseline]
 
     # snippet-start:[python.example_code.controltower.ListControls]
@@ -186,11 +186,14 @@ class ControlTowerWrapper:
                 controlIdentifier=control_arn,
                 targetIdentifier=target_identifier
             )
-            return response['operationId']
+            return response['operationIdentifier']
 
-        except self.controltower_client.exceptions.ResourceNotFoundException:
-            print("Control not found.")
         except ClientError as err:
+            if (err.response["Error"]["Code"] == "ValidationException" and
+                    "already enabled" in err.response["Error"][
+                "Message"]):
+                logger.info("Control is already enabled for this target")
+                return None
             logger.error(
                 "Couldn't enable control. Here's why: %s: %s",
                 err.response["Error"]["Code"],
@@ -270,6 +273,7 @@ class ControlTowerWrapper:
             return response['status']
         except self.controltower_client.exceptions.ResourceNotFoundException:
             print("Landing zone operation not found.")
+            raise
         except ClientError as err:
             logger.error(
                 "Couldn't get landing zone operation status. Here's why: %s: %s",
@@ -279,3 +283,29 @@ class ControlTowerWrapper:
             raise
 
 # snippet-end:[python.example_code.controltower.GetLandingZoneOperation]
+
+    # snippet-start:[python.example_code.controltower.ListLandingZones]
+    def list_landing_zones(self):
+        """
+        Lists all landing zones.
+
+        :return: List of landing zones.
+        :raises ClientError: If the listing operation fails.
+        """
+        try:
+            paginator = self.controltower_client.get_paginator('list_landing_zones')
+            landing_zones = []
+            for page in paginator.paginate():
+                landing_zones.extend(page['landingZones'])
+            return landing_zones
+
+        except ClientError as err:
+            logger.error(
+                "Couldn't list landing zones. Here's why: %s: %s",
+                err.response["Error"]["Code"],
+                err.response["Error"]["Message"]
+            )
+            raise
+    # snippet-end:[python.example_code.controltower.ListLandingZones]
+
+# snippet-end:[python.example_code.controltower.ControlTowerWrapper.class]

@@ -51,7 +51,36 @@ class ControlTowerScenario:
             # Landing Zone Setup.
             print("Landing Zone operations:")
 
-            if q.ask(
+            # List available landing zones
+            landing_zones = self.controltower_wrapper.list_landing_zones()
+            if landing_zones:
+                print("\nAvailable Landing Zones:")
+                for i, lz in enumerate(landing_zones, 1):
+                    print(f"{i}. {lz['name']} (ID: {lz['arn']})")
+                
+                # Ask if user wants to use the first landing zone in the list
+                if q.ask(
+                    f"Do you want to use the first landing zone in the list ({landing_zones[0]['name']})? (y/n) ",
+                    q.is_yesno,
+                ):
+                    self.use_landing_zone = True
+                    self.landing_zone_id = landing_zones[0]['arn']
+                    print(f"Using landing zone: {landing_zones[0]['name']} (ID: {self.landing_zone_id})")
+                    # Set up organization and get Sandbox OU ID.
+                    sandbox_ou_id = self.setup_organization()
+                    # Store the OU ID for use in the CloudFormation template.
+                    self.ou_id = sandbox_ou_id
+                elif q.ask(
+                    f"Do you want to use a different existing Landing Zone for this demo? (y/n) ",
+                    q.is_yesno,
+                ):
+                    self.use_landing_zone = True
+                    self.landing_zone_id = q.ask("Enter landing zone id: ", q.non_empty)
+                    # Set up organization and get Sandbox OU ID.
+                    sandbox_ou_id = self.setup_organization()
+                    # Store the OU ID for use in the CloudFormation template.
+                    self.ou_id = sandbox_ou_id
+            elif q.ask(
                 f"Do you want to use an existing Landing Zone for this demo? (y/n) ",
                 q.is_yesno,
             ):
@@ -59,7 +88,6 @@ class ControlTowerScenario:
                 self.landing_zone_id = q.ask("Enter landing zone id: ", q.non_empty)
                 # Set up organization and get Sandbox OU ID.
                 sandbox_ou_id = self.setup_organization()
-
                 # Store the OU ID for use in the CloudFormation template.
                 self.ou_id = sandbox_ou_id
 
@@ -122,7 +150,10 @@ class ControlTowerScenario:
                     control_tower_baseline['arn'],
                     '4.0'
                 )
-                print(f"Enabled baseline ARN: {baseline_arn}")
+                if baseline_arn:
+                    print(f"Enabled baseline ARN: {baseline_arn}")
+                else:
+                    print("Baseline is already enabled for this target")
 
             # List and Enable Controls.
             print("Managing Controls:")
@@ -140,20 +171,26 @@ class ControlTowerScenario:
                 operation_id = self.controltower_wrapper.enable_control(
                     control_arn, target_ou)
 
+                if operation_id:
+                    print(f"Enabling control with operation id {operation_id}")
+                else:
+                    print("Control is already enabled for this target")
                 # Wait for control operation to complete.
-                while True:
-                    status = self.controltower_wrapper.get_control_operation(operation_id)
-                    print(f"Control operation status: {status}")
-                    if status in ['SUCCEEDED', 'FAILED']:
-                        break
-                    datetime.time.sleep(30)
 
-                if status == 'SUCCEEDED':
-                    # Disable the control.
-                    print("\nDisabling the control...")
-                    operation_id = self.controltower_wrapper.disable_control(
-                        control_arn, target_ou)
-                    print(f"Disable operation ID: {operation_id}")
+                if operation_id:
+                    while True:
+                        status = self.controltower_wrapper.get_control_operation(operation_id)
+                        print(f"Control operation status: {status}")
+                        if status in ['SUCCEEDED', 'FAILED']:
+                            break
+                        datetime.time.sleep(30)
+
+                    if status == 'SUCCEEDED':
+                        # Disable the control.
+                        print("\nDisabling the control...")
+                        operation_id = self.controltower_wrapper.disable_control(
+                            control_arn, target_ou)
+                        print(f"Disable operation ID: {operation_id}")
 
             print("This concludes the scenario.")
             if q.ask(
