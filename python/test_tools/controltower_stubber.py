@@ -56,17 +56,20 @@ class ControlTowerStubber(ExampleStubber):
             "create_landing_zone", expected_params, response, error_code=error_code
         )
 
-    def stub_delete_landing_zone(self, landing_zone_identifier: str, error_code: str = None) -> None:
+    def stub_delete_landing_zone(self, landing_zone_identifier: str, operation_identifier: str, error_code: str = None) -> None:
         """
         Stub the delete_landing_zone function.
 
         :param landing_zone_identifier: The identifier of the landing zone to delete.
+        :param operation_identifier: The identifier of the delete operation.
         :param error_code: Simulated error code to raise.
         """
         expected_params = {
             "landingZoneIdentifier": landing_zone_identifier
         }
-        response = {}
+        response = {
+            "operationIdentifier": operation_identifier
+        }
         self._stub_bifurcator(
             "delete_landing_zone", expected_params, response, error_code=error_code
         )
@@ -101,7 +104,7 @@ class ControlTowerStubber(ExampleStubber):
             "list_baselines", expected_params, response, error_code=error_code
         )
 
-    def stub_enable_baseline(self, baseline_identifier: str, baseline_version: str, target_identifier: str, arn: str, error_code: str = None) -> None:
+    def stub_enable_baseline(self, baseline_identifier: str, baseline_version: str, target_identifier: str, arn: str, operation_identifier: str, error_code: str = None) -> None:
         """
         Stub the enable_baseline function.
 
@@ -109,6 +112,7 @@ class ControlTowerStubber(ExampleStubber):
         :param baseline_version: The version of the baseline.
         :param target_identifier: The identifier of the target.
         :param arn: The ARN of the enabled baseline.
+        :param operation_identifier: The operation identifier of the enable operation.
         :param error_code: Simulated error code to raise.
         """
         expected_params = {
@@ -117,7 +121,8 @@ class ControlTowerStubber(ExampleStubber):
             "targetIdentifier": target_identifier
         }
         response = {
-            "arn": arn
+            "arn": arn,
+            "operationIdentifier": operation_identifier,
         }
         self._stub_bifurcator(
             "enable_baseline", expected_params, response, error_code=error_code
@@ -143,21 +148,21 @@ class ControlTowerStubber(ExampleStubber):
             "enable_control", expected_params, response, error_code=error_code
         )
 
-    def stub_disable_control(self, control_arn: str, target_identifier: str, operation_id: str, error_code: str = None) -> None:
+    def stub_disable_control(self, control_identifier: str, target_identifier: str, operation_id: str, error_code: str = None) -> None:
         """
         Stub the disable_control function.
 
-        :param control_arn: The ARN of the control.
+        :param control_identifier: The identifier of the control.
         :param target_identifier: The identifier of the target.
         :param operation_id: The ID of the operation.
         :param error_code: Simulated error code to raise.
         """
         expected_params = {
-            "controlArn": control_arn,
+            "controlIdentifier": control_identifier,
             "targetIdentifier": target_identifier
         }
         response = {
-            "operationId": operation_id
+            "operationIdentifier": operation_id
         }
         self._stub_bifurcator(
             "disable_control", expected_params, response, error_code=error_code
@@ -175,7 +180,9 @@ class ControlTowerStubber(ExampleStubber):
             "operationIdentifier": operation_identifier
         }
         response = {
-            "status": status
+            "controlOperation": {
+                "status": status,
+            }
         }
         self._stub_bifurcator(
             "get_control_operation", expected_params, response, error_code=error_code
@@ -193,7 +200,9 @@ class ControlTowerStubber(ExampleStubber):
             "operationIdentifier": operation_identifier
         }
         response = {
-            "status": status
+            "operationDetails": {
+                "status": status
+            }
         }
         self._stub_bifurcator(
             "get_landing_zone_operation", expected_params, response, error_code=error_code

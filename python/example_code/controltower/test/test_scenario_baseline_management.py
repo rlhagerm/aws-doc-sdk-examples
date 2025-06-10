@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Unit tests for baseline management in scenario_controltower.py.
+Tests for baseline management in scenario_controltower.py.
 """
 
 import pytest

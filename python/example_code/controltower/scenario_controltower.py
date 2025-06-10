@@ -21,13 +21,15 @@ logger = logging.getLogger(__name__)
 class ControlTowerScenario:
     stack_name = ""
 
-    def __init__(self, controltower_wrapper, cloudformation_resource):
+    def __init__(self, controltower_wrapper, cloudformation_resource, org_client):
         """
         :param controltower_wrapper: An instance of the ControlTowerWrapper class.
         :param cloudformation_resource: A Boto3 CloudFormation resource.
+        :param org_client: A Boto3 Organization client.
         """
         self.controltower_wrapper = controltower_wrapper
         self.cf_resource = cloudformation_resource
+        self.org_client = org_client
         self.stack = None
         self.ou_id = None
         self.ou_arn = None
@@ -42,7 +44,7 @@ class ControlTowerScenario:
         )
         print("-" * 88)
 
-        print("This demo will walk you through setting up an AWS Control Tower landing zone,")
+        print("This demo will walk you through working with landing zones,")
         print("managing baselines, and working with controls.")
 
         try:
@@ -56,16 +58,16 @@ class ControlTowerScenario:
             if landing_zones:
                 print("\nAvailable Landing Zones:")
                 for i, lz in enumerate(landing_zones, 1):
-                    print(f"{i}. {lz['name']} (ID: {lz['arn']})")
+                    print(f"{i} {lz['arn']})")
                 
                 # Ask if user wants to use the first landing zone in the list
                 if q.ask(
-                    f"Do you want to use the first landing zone in the list ({landing_zones[0]['name']})? (y/n) ",
+                    f"Do you want to use the first landing zone in the list ({landing_zones[0]['arn']})? (y/n) ",
                     q.is_yesno,
                 ):
                     self.use_landing_zone = True
                     self.landing_zone_id = landing_zones[0]['arn']
-                    print(f"Using landing zone: {landing_zones[0]['name']} (ID: {self.landing_zone_id})")
+                    print(f"Using landing zone ID: {self.landing_zone_id})")
                     # Set up organization and get Sandbox OU ID.
                     sandbox_ou_id = self.setup_organization()
                     # Store the OU ID for use in the CloudFormation template.
@@ -217,11 +219,10 @@ class ControlTowerScenario:
         :return: The ID of the Sandbox OU
         """
         print("\nChecking organization status...")
-        org_client = boto3.client('organizations')
 
         try:
             # Check if account is part of an organization
-            org_response = org_client.describe_organization()
+            org_response = self.org_client.describe_organization()
             org_id = org_response['Organization']['Id']
             print(f"Account is part of organization: {org_id}")
 
@@ -229,14 +230,14 @@ class ControlTowerScenario:
             if error.response['Error']['Code'] == 'AWSOrganizationsNotInUseException':
                 print("No organization found. Creating a new organization...")
                 try:
-                    create_response = org_client.create_organization(
+                    create_response = self.org_client.create_organization(
                         FeatureSet='ALL'
                     )
                     org_id = create_response['Organization']['Id']
                     print(f"Created new organization: {org_id}")
 
                     # Wait for organization to be available.
-                    waiter = org_client.get_waiter('organization_active')
+                    waiter = self.org_client.get_waiter('organization_active')
                     waiter.wait(
                         Organization=org_id,
                         WaiterConfig={'Delay': 5, 'MaxAttempts': 12}
@@ -259,11 +260,11 @@ class ControlTowerScenario:
 
         # Look for Sandbox OU.
         sandbox_ou_id = None
-        paginator = org_client.get_paginator('list_organizational_units_for_parent')
+        paginator = self.org_client.get_paginator('list_organizational_units_for_parent')
 
         try:
             # Get root ID first.
-            roots = org_client.list_roots()['Roots']
+            roots = self.org_client.list_roots()['Roots']
             if not roots:
                 raise ValueError("No root found in organization")
             root_id = roots[0]['Id']
@@ -283,7 +284,7 @@ class ControlTowerScenario:
             # Create Sandbox OU if it doesn't exist.
             if not sandbox_ou_id:
                 print("Creating Sandbox OU...")
-                create_ou_response = org_client.create_organizational_unit(
+                create_ou_response = self.org_client.create_organizational_unit(
                     ParentId=root_id,
                     Name='Sandbox'
                 )
@@ -291,7 +292,7 @@ class ControlTowerScenario:
                 print(f"Created new Sandbox OU: {sandbox_ou_id}")
 
                 # Wait for OU to be available.
-                waiter = org_client.get_waiter('organizational_unit_active')
+                waiter = self.org_client.get_waiter('organizational_unit_active')
                 waiter.wait(
                     OrganizationalUnitId=sandbox_ou_id,
                     WaiterConfig={'Delay': 5, 'MaxAttempts': 12}

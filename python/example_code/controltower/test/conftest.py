@@ -22,8 +22,6 @@ from controltower_wrapper import ControlTowerWrapper
 sys.path.append(os.path.join(script_dir, "../.."))
 
 from test_tools.fixtures.common import *
-from test_tools.controltower_stubber import ControlTowerStubber
-from test_tools.controlcatalog_stubber import ControlCatalogStubber
 
 
 class ScenarioData:
@@ -51,6 +49,7 @@ class ScenarioData:
                 self.controltower_client, self.controlcatalog_client
             ),
             cloudformation_resource=self.cloud_formation_resource,
+            org_client=self.organizations_client
         )
 
 
@@ -61,8 +60,8 @@ def scenario_data(make_stubber):
     cloud_formation_resource = boto3.resource("cloudformation")
     organizations_client = boto3.client("organizations")
     
-    controltower_stubber = ControlTowerStubber(controltower_client)
-    controlcatalog_stubber = ControlCatalogStubber(controlcatalog_client)
+    controltower_stubber = make_stubber(controltower_client)
+    controlcatalog_stubber = make_stubber(controlcatalog_client)
     cloud_formation_stubber = make_stubber(cloud_formation_resource.meta.client)
     organizations_stubber = make_stubber(organizations_client)
     

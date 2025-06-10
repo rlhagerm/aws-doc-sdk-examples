@@ -216,7 +216,7 @@ class ControlTowerWrapper:
             response = self.controltower_client.get_control_operation(
                 operationIdentifier=operation_id
             )
-            return response['status']
+            return response['controlOperation']['status']
         except self.controltower_client.exceptions.ResourceNotFoundException:
             print("Control not found.")
         except ClientError as err:
@@ -241,10 +241,10 @@ class ControlTowerWrapper:
         """
         try:
             response = self.controltower_client.disable_control(
-                controlArn=control_arn,
+                controlIdentifier=control_arn,
                 targetIdentifier=target_identifier
             )
-            return response['operationId']
+            return response['operationIdentifier']
         except self.controltower_client.exceptions.ResourceNotFoundException:
             print("Control not found.")
         except ClientError as err:
@@ -270,7 +270,7 @@ class ControlTowerWrapper:
             response = self.controltower_client.get_landing_zone_operation(
                 operationIdentifier=operation_id
             )
-            return response['status']
+            return response['operationDetails']['status']
         except self.controltower_client.exceptions.ResourceNotFoundException:
             print("Landing zone operation not found.")
             raise
