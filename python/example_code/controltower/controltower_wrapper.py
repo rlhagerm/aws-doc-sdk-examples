@@ -48,18 +48,15 @@ class ControlTowerWrapper:
                 version='3.3'
             )
             return response
-        except self.controltower_client.exceptions.AccessDeniedException:
-            print("Access denied. Please ensure you have the necessary permissions.")
-       # except self.controltower_client.exceptions.ValidationException:
-        #    print("Deleting landing zone")
-        #    raise
         except ClientError as err:
-            print(err)
-            logger.error(
-                "Couldn't set up landing zone. Here's why: %s: %s",
-                err.response["Error"]["Code"],
-                err.response["Error"]["Message"]
-            )
+            if err.response["Error"]["Code"] == "AccessDeniedException":
+                logger.error("Access denied. Please ensure you have the necessary permissions.")
+            else:
+                logger.error(
+                    "Couldn't set up landing zone. Here's why: %s: %s",
+                    err.response["Error"]["Code"],
+                    err.response["Error"]["Message"]
+                )
             raise
 
     # snippet-end:[python.example_code.controltower.SetupLandingZone]
@@ -77,14 +74,15 @@ class ControlTowerWrapper:
             self.controltower_client.delete_landing_zone(
                 landingZoneIdentifier=landing_zone_identifier
             )
-        except self.controltower_client.exceptions.ResourceNotFoundException:
-            print("Landing Zone not found.")
         except ClientError as err:
-            logger.error(
-                "Couldn't delete landing zone. Here's why: %s: %s",
-                err.response["Error"]["Code"],
-                err.response["Error"]["Message"]
-            )
+            if err.response["Error"]["Code"] == "ResourceNotFoundException":
+                logger.error("Landing zone not found.")
+            else:
+                logger.error(
+                    "Couldn't delete landing zone. Here's why: %s: %s",
+                    err.response["Error"]["Code"],
+                    err.response["Error"]["Message"]
+                )
             raise
 
     # snippet-end:[python.example_code.controltower.DeleteLandingZone]
@@ -105,11 +103,14 @@ class ControlTowerWrapper:
             return baselines
 
         except ClientError as err:
-            logger.error(
-                "Couldn't list baselines. Here's why: %s: %s",
-                err.response["Error"]["Code"],
-                err.response["Error"]["Message"]
-            )
+            if err.response["Error"]["Code"] == "AccessDeniedException":
+                logger.error("Access denied. Please ensure you have the necessary permissions.")
+            else:
+                logger.error(
+                    "Couldn't list baselines. Here's why: %s: %s",
+                    err.response["Error"]["Code"],
+                    err.response["Error"]["Message"]
+                )
             raise
 
     # snippet-end:[python.example_code.controltower.ListBaselines]
@@ -160,11 +161,14 @@ class ControlTowerWrapper:
             return controls
 
         except ClientError as err:
-            logger.error(
-                "Couldn't list controls. Here's why: %s: %s",
-                err.response["Error"]["Code"],
-                err.response["Error"]["Message"]
-            )
+            if err.response["Error"]["Code"] == "AccessDeniedException":
+                logger.error("Access denied. Please ensure you have the necessary permissions.")
+            else:
+                logger.error(
+                    "Couldn't list controls. Here's why: %s: %s",
+                    err.response["Error"]["Code"],
+                    err.response["Error"]["Message"]
+                )
             raise
 
     # snippet-end:[python.example_code.controltower.ListControls]
@@ -217,14 +221,15 @@ class ControlTowerWrapper:
                 operationIdentifier=operation_id
             )
             return response['controlOperation']['status']
-        except self.controltower_client.exceptions.ResourceNotFoundException:
-            print("Control not found.")
         except ClientError as err:
-            logger.error(
-                "Couldn't get control operation status. Here's why: %s: %s",
-                err.response["Error"]["Code"],
-                err.response["Error"]["Message"]
-            )
+            if err.response["Error"]["Code"] == "ResourceNotFoundException":
+                logger.error("Control not found.")
+            else:
+                logger.error(
+                    "Couldn't get control operation status. Here's why: %s: %s",
+                    err.response["Error"]["Code"],
+                    err.response["Error"]["Message"]
+                )
             raise
 
     # snippet-end:[python.example_code.controltower.GetControlOperation]
@@ -245,14 +250,15 @@ class ControlTowerWrapper:
                 targetIdentifier=target_identifier
             )
             return response['operationIdentifier']
-        except self.controltower_client.exceptions.ResourceNotFoundException:
-            print("Control not found.")
         except ClientError as err:
-            logger.error(
-                "Couldn't disable control. Here's why: %s: %s",
-                err.response["Error"]["Code"],
-                err.response["Error"]["Message"]
-            )
+            if err.response["Error"]["Code"] == "ResourceNotFoundException":
+                logger.error("Control not found.")
+            else:
+                logger.error(
+                    "Couldn't disable control. Here's why: %s: %s",
+                    err.response["Error"]["Code"],
+                    err.response["Error"]["Message"]
+                )
             raise
 
     # snippet-end:[python.example_code.controltower.DisableControl]
@@ -271,15 +277,15 @@ class ControlTowerWrapper:
                 operationIdentifier=operation_id
             )
             return response['operationDetails']['status']
-        except self.controltower_client.exceptions.ResourceNotFoundException:
-            print("Landing zone operation not found.")
-            raise
         except ClientError as err:
-            logger.error(
-                "Couldn't get landing zone operation status. Here's why: %s: %s",
-                err.response["Error"]["Code"],
-                err.response["Error"]["Message"]
-            )
+            if err.response["Error"]["Code"] == "ResourceNotFoundException":
+                logger.error("Landing zone not found.")
+            else:
+                logger.error(
+                    "Couldn't get landing zone operation status. Here's why: %s: %s",
+                    err.response["Error"]["Code"],
+                    err.response["Error"]["Message"]
+                )
             raise
 
 # snippet-end:[python.example_code.controltower.GetLandingZoneOperation]
@@ -300,11 +306,14 @@ class ControlTowerWrapper:
             return landing_zones
 
         except ClientError as err:
-            logger.error(
-                "Couldn't list landing zones. Here's why: %s: %s",
-                err.response["Error"]["Code"],
-                err.response["Error"]["Message"]
-            )
+            if err.response["Error"]["Code"] == "AccessDeniedException":
+                logger.error("Access denied. Please ensure you have the necessary permissions.")
+            else:
+                logger.error(
+                    "Couldn't list landing zones. Here's why: %s: %s",
+                    err.response["Error"]["Code"],
+                    err.response["Error"]["Message"]
+                )
             raise
     # snippet-end:[python.example_code.controltower.ListLandingZones]
 

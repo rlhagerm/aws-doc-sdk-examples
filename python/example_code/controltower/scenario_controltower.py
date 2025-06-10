@@ -55,7 +55,7 @@ class ControlTowerScenario:
 
             # List available landing zones
             landing_zones = self.controltower_wrapper.list_landing_zones()
-            if landing_zones:
+            if False:
                 print("\nAvailable Landing Zones:")
                 for i, lz in enumerate(landing_zones, 1):
                     print(f"{i} {lz['arn']})")
@@ -120,7 +120,7 @@ class ControlTowerScenario:
                     if lz_response:
                         self.landing_zone_id = lz_response['arn']
                         print(f"Landing Zone ARN: {lz_response['arn']}")
-                        print(f"Operation ID: {lz_response['operationId']}")
+                        print(lz_response)
 
                     # Wait for Landing Zone setup to complete.
                     print("\nWaiting for Landing Zone setup to complete...")
@@ -416,9 +416,10 @@ class ControlTowerScenario:
 if __name__ == "__main__":
     try:
         cf = boto3.resource("cloudformation")
+        org = boto3.client("organizations")
         control_tower_wrapper = ControlTowerWrapper.from_client()
 
-        scenario = ControlTowerScenario(control_tower_wrapper, cf)
+        scenario = ControlTowerScenario(control_tower_wrapper, cf, org)
         scenario.run_scenario()
     except Exception:
         logging.exception("Something went wrong with the scenario.")

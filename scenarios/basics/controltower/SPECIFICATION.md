@@ -123,15 +123,12 @@ The following errors are handled in the Control Tower wrapper class:
 
 | action                   | Error                     | Handling                                                                    |
 |--------------------------|---------------------------|-----------------------------------------------------------------------------|
-| `CreateLandingZone`      | AccessDeniedException     | Notify the user of insufficient permissions and exit.                       |
-| `DeleteLandingZone`      | ResourceNotFoundException | Notify the user that the landing zone was not found.                        |
 | `ListBaselines`          | AccessDeniedException     | Notify the user of insufficient permissions and exit.                       |
 | `EnableBaseline`         | ValidationException       | Handle case where baseline is already enabled and return None.              |
 | `ListControls`           | AccessDeniedException     | Notify the user of insufficient permissions and exit.                       |
 | `EnableControl`          | ValidationException       | Handle case where control is already enabled and return None.               |
 | `GetControlOperation`    | ResourceNotFound          | Notify the user that the control operation was not found.                   |
 | `DisableControl`         | ResourceNotFound          | Notify the user that the control was not found.                             | 
-| `GetLandingZoneOperation`| ResourceNotFound          | Notify the user that the landing zone operation was not found and re-raise. |
 | `ListLandingZones`       | AccessDeniedException     | Notify the user of insufficient permissions and exit.                       |
 
 
@@ -142,15 +139,11 @@ The following errors are handled in the Control Tower wrapper class:
 | action / scenario               | metadata file              | metadata key                         |
 |---------------------------------|----------------------------|--------------------------------------|
 | `ListBaselines`                 | controltower_metadata.yaml | controltower_Hello                   |
-| `SetupLandingZone`              | controltower_metadata.yaml | controltower_SetupLandingZone        |
-| `DeleteLandingZone`             | controltower_metadata.yaml | controltower_DeleteLandingZone       |
 | `ListBaselines`                 | controltower_metadata.yaml | controltower_ListBaselines           |
 | `EnableBaseline`                | controltower_metadata.yaml | controltower_EnableBaseline          |
 | `EnableControl`                 | controltower_metadata.yaml | controltower_EnableControl           |
 | `GetControlOperation`           | controltower_metadata.yaml | controltower_GetControlOperation     |
 | `DisableControl`                | controltower_metadata.yaml | controltower_DisableControl          |
-| `GetLandingZoneOperation`       | controltower_metadata.yaml | controltower_GetLandingZoneOperation |
 | `ListLandingZones`              | controltower_metadata.yaml | controltower_ListLandingZones        |
-| `LandingZoneManifest`           | controltower_metadata.yaml | controltower_LandingZoneManifest     |
 | `Control Tower Basics Scenario` | controltower_metadata.yaml | controltower_Scenario                |
 
