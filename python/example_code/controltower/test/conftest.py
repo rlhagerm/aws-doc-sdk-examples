@@ -29,26 +29,21 @@ class ScenarioData:
         self,
         controltower_client,
         controlcatalog_client,
-        cloud_formation_resource,
         organizations_client,
         controltower_stubber,
         controlcatalog_stubber,
-        cloud_formation_stubber,
         organizations_stubber,
     ):
         self.controltower_client = controltower_client
         self.controlcatalog_client = controlcatalog_client
-        self.cloud_formation_resource = cloud_formation_resource
         self.organizations_client = organizations_client
         self.controltower_stubber = controltower_stubber
         self.controlcatalog_stubber = controlcatalog_stubber
-        self.cloud_formation_stubber = cloud_formation_stubber
         self.organizations_stubber = organizations_stubber
         self.scenario = scenario_controltower.ControlTowerScenario(
             controltower_wrapper=ControlTowerWrapper(
                 self.controltower_client, self.controlcatalog_client
             ),
-            cloudformation_resource=self.cloud_formation_resource,
             org_client=self.organizations_client
         )
 
@@ -57,22 +52,18 @@ class ScenarioData:
 def scenario_data(make_stubber):
     controltower_client = boto3.client("controltower")
     controlcatalog_client = boto3.client("controlcatalog")
-    cloud_formation_resource = boto3.resource("cloudformation")
     organizations_client = boto3.client("organizations")
     
     controltower_stubber = make_stubber(controltower_client)
     controlcatalog_stubber = make_stubber(controlcatalog_client)
-    cloud_formation_stubber = make_stubber(cloud_formation_resource.meta.client)
     organizations_stubber = make_stubber(organizations_client)
     
     return ScenarioData(
         controltower_client,
         controlcatalog_client,
-        cloud_formation_resource,
         organizations_client,
         controltower_stubber,
         controlcatalog_stubber,
-        cloud_formation_stubber,
         organizations_stubber,
     )
 

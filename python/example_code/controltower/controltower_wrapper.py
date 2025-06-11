@@ -134,9 +134,13 @@ class ControlTowerWrapper:
             )
             return response['arn']
         except ClientError as err:
-            if err.response["Error"]["Code"] == "ValidationException" and "already enabled" in err.response["Error"]["Message"]:
-                logger.info("Baseline is already enabled for this target")
-                return None
+            if err.response["Error"]["Code"] == "ValidationException":
+                if "already enabled" in err.response["Error"]["Message"]:
+                    print("Baseline is already enabled for this target")
+                else:
+                    print("Unable to enable baseline due to validation exception: %s: %s",
+                          err.response["Error"]["Code"],
+                          err.response["Error"]["Message"])
             logger.error(
                 "Couldn't enable baseline. Here's why: %s: %s",
                 err.response["Error"]["Code"],
@@ -316,5 +320,105 @@ class ControlTowerWrapper:
                 )
             raise
     # snippet-end:[python.example_code.controltower.ListLandingZones]
+
+    # snippet-start:[python.example_code.controltower.ListEnabledBaselines]
+    def list_enabled_baselines(self, target_identifier):
+        """
+        Lists all enabled baselines for a specific target.
+
+        :param target_identifier: The identifier of the target (e.g., OU ARN).
+        :return: List of enabled baselines.
+        :raises ClientError: If the listing operation fails.
+        """
+        try:
+            paginator = self.controltower_client.get_paginator('list_enabled_baselines')
+            enabled_baselines = []
+            for page in paginator.paginate(targetIdentifier=target_identifier):
+                enabled_baselines.extend(page['enabledBaselines'])
+            return enabled_baselines
+
+        except ClientError as err:
+            logger.error(
+                "Couldn't list enabled baselines. Here's why: %s: %s",
+                err.response["Error"]["Code"],
+                err.response["Error"]["Message"]
+            )
+            raise
+    # snippet-end:[python.example_code.controltower.ListEnabledBaselines]
+    
+    # snippet-start:[python.example_code.controltower.ResetEnabledBaseline]
+    def reset_enabled_baseline(self, target_identifier, baseline_identifier):
+        """
+        Resets an enabled baseline for a specific target.
+
+        :param target_identifier: The identifier of the target (e.g., OU ARN).
+        :param baseline_identifier: The identifier of the baseline to reset.
+        :return: The operation ID.
+        :raises ClientError: If resetting the baseline fails.
+        """
+        try:
+            response = self.controltower_client.reset_enabled_baseline(
+                targetIdentifier=target_identifier,
+                baselineIdentifier=baseline_identifier
+            )
+            return response['operationIdentifier']
+        except ClientError as err:
+            logger.error(
+                "Couldn't reset enabled baseline. Here's why: %s: %s",
+                err.response["Error"]["Code"],
+                err.response["Error"]["Message"]
+            )
+            raise
+    # snippet-end:[python.example_code.controltower.ResetEnabledBaseline]
+    
+    # snippet-start:[python.example_code.controltower.DisableBaseline]
+    def disable_baseline(self, target_identifier, baseline_identifier):
+        """
+        Disables a baseline for a specific target.
+
+        :param target_identifier: The identifier of the target (e.g., OU ARN).
+        :param baseline_identifier: The identifier of the baseline to disable.
+        :return: The operation ID.
+        :raises ClientError: If disabling the baseline fails.
+        """
+        try:
+            response = self.controltower_client.disable_baseline(
+                targetIdentifier=target_identifier,
+                baselineIdentifier=baseline_identifier
+            )
+            return response['operationIdentifier']
+        except ClientError as err:
+            logger.error(
+                "Couldn't disable baseline. Here's why: %s: %s",
+                err.response["Error"]["Code"],
+                err.response["Error"]["Message"]
+            )
+            raise
+    # snippet-end:[python.example_code.controltower.DisableBaseline]
+    
+    # snippet-start:[python.example_code.controltower.ListEnabledControls]
+    def list_enabled_controls(self, target_identifier):
+        """
+        Lists all enabled controls for a specific target.
+
+        :param target_identifier: The identifier of the target (e.g., OU ARN).
+        :return: List of enabled controls.
+        :raises ClientError: If the listing operation fails.
+        """
+        try:
+            paginator = self.controltower_client.get_paginator('list_enabled_controls')
+            enabled_controls = []
+            for page in paginator.paginate(targetIdentifier=target_identifier):
+                enabled_controls.extend(page['enabledControls'])
+            return enabled_controls
+
+        except ClientError as err:
+            logger.error(
+                "Couldn't list enabled controls. Here's why: %s: %s",
+                err.response["Error"]["Code"],
+                err.response["Error"]["Message"]
+            )
+            raise
+    # snippet-end:[python.example_code.controltower.ListEnabledControls]
 
 # snippet-end:[python.example_code.controltower.ControlTowerWrapper.class]

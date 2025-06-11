@@ -14,15 +14,12 @@ class MockManager:
     def __init__(self, stub_runner, scenario_data, input_mocker):
         self.scenario_data = scenario_data
         self.account_id = "123456789012"
-        self.second_account_id = "210987654321"
-        self.stack_name = "test-stack"
         self.org_id = "o-exampleorgid"
         self.root_id = "r-examplerootid"
         self.sandbox_ou_id = "ou-exampleouid"
         self.sandbox_ou_arn = "arn:aws:organizations::123456789012:ou/o-exampleorgid/ou-exampleouid"
         self.landing_zone_arn = "arn:aws:controltower:us-east-1:123456789012:landingzone/lz-example"
         self.operation_id = "op-1234567890abcdef01234567890abcdef"
-        self.lz_operation_id = "op-1234567890abcdef01234567890abcdef"
         self.baseline_operation_id = "op-1234567890abcdef01234567890abcdef"
         self.stack_id = "arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack/abcdef"
         self.baseline_arn = "arn:aws:controltower:us-east-1:123456789012:baseline/AWSControlTowerBaseline"
@@ -54,11 +51,10 @@ class MockManager:
         self.input_mocker = input_mocker
 
     def setup_stubs_use_suggested(self, error, stop_on, monkeypatch):
-        """Setup stubs for the scenario that uses the suggested landing zone"""
+        """Setup stubs for the scenario"""
         # Mock user inputs for using the suggested landing zone
         answers = [
             "y",  # Use first landing zone in the list
-            "y",  # Clean up resources
             "y",  # Clean up resources
         ]
         self.input_mocker.mock_answers(answers)
@@ -135,6 +131,15 @@ class MockManager:
                 self.lz_operation_id
             )
 
+    def setup_integ(self, error, stop_on):
+        """Set up the scenario for an integration test."""
+        # Mock user inputs for using the suggested landing zone
+        answers = [
+            "n",  # Do not create a landing zone for this scenario.
+        ]
+        self.input_mocker.mock_answers(answers)
+
+
 
 @pytest.fixture
 def mock_mgr(stub_runner, scenario_data, input_mocker):
@@ -145,12 +150,24 @@ ANY = object()
 
 
 def test_run_scenario_use_suggested(mock_mgr, capsys, monkeypatch):
-    """Test the scenario that uses the suggested landing zone"""
+    """Test the scenario that uses the suggested landing zone."""
     mock_mgr.setup_stubs_use_suggested(None, None, monkeypatch)
     
     # Run the scenario
     mock_mgr.scenario_data.scenario.run_scenario()
     
+    # Verify the scenario completed successfully
+    captured = capsys.readouterr()
+    assert "This concludes the scenario." in captured.out
+
+@pytest.mark.integ
+def test_run_scenario_integ(mock_mgr, capsys, monkeypatch):
+    """Test the scenario with an integration test."""
+    mock_mgr.setup_integ(None, None)
+
+    # Run the scenario
+    mock_mgr.scenario_data.scenario.run_scenario()
+
     # Verify the scenario completed successfully
     captured = capsys.readouterr()
     assert "This concludes the scenario." in captured.out

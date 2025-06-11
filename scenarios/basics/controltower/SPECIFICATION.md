@@ -24,9 +24,10 @@ For an introduction, see the [README.md](README.md).
 
 ## Resources and User Input
 
-- The resources in this example are either created in the code, or using CloudFormation stack to set up the following resources:
-  - An organization with 2 shared accounts 
-  - IAM roles as specified in the tutorial
+- This example can run with no additional resources, or can use an existing landing zone. Since landing zone creation
+- requires multiple AWS accounts (which cannot be deleted for 7 days), this example does not support creating new
+- landing zones. The example will prompt to use a current landing zone, or run only that portion that doesn't 
+- require landing zone identifiers.
 
 ### Hello
 The Hello example is a separate runnable example.
@@ -50,23 +51,8 @@ Hello, AWS Control Tower! Let's list available baselines:
 ## Scenario
 
 #### Setup
-Deploy the Cloud Formation stack.
-
-The CloudFormation stack creation should return the account IDs.
-The Stack creation should prompt the user for logging and security account emails, and a name for the stack.
-
-Example:
-```
-TODO
-```
-
-#### Landing Zone
-
-Based on https://docs.aws.amazon.com/controltower/latest/userguide/walkthrough-api-setup.html
-
-- Use the account IDs to generate a Landing Zone manifest file.
-- Set up the Landing Zone with the manifest file, and capture the ARN and operation identifier.
-- Poll for the status of the Landing Zone, until the operation is complete.
+- List available landing zones, and prompt the user if they would like to use the first or other landing zone.
+- If no landing zones, provide a link to set up a landing zone and only use the list operations that do not require a target id.
 
 Example
 ```
@@ -74,14 +60,14 @@ TODO
 
 ```
 
-#### Baseline
-
-Based on https://docs.aws.amazon.com/controltower/latest/userguide/walkthrough-baseline-steps.html
-
-- Update Landing Zone settings to enable the IdentityCenter Baseline (this will mean OUs must be re-registered)
-- Use the ARNs of the OU to get the enabled baseline ARN
-- Reset the enabled baseline for the OU
-
+#### Baselines
+- List available baselines.
+- If a landing zone exists:
+  - List enabled baselines.
+  - Prompt the user if they would like to enable another baseline from the list.
+  - Get the operational status of the baseline operation.
+  - Reset the baseline.
+  - Disable the baseline.
 
 Example
 ```
@@ -90,13 +76,15 @@ TODO
 ```
 
 #### Controls
+Some control operations require the use of the ControlCatalog client. This client does not have it's own documentation,
+and so is included as part of this example.
 
-Based on https://docs.aws.amazon.com/controltower/latest/controlreference/control-api-examples-short.html
-
-- List Controls in Control Catalog
-- Enable a Control
-- Get the operational status of the Control
-- Disable the Control
+- List Controls in Control Catalog.
+- If a landing zone exists:
+  - Enable a control.
+  - Get the operational status of the control.
+  - List enabled controls.
+  - Disable the control.
 
 Example
 ```
@@ -104,46 +92,39 @@ TODO
 
 ```
 
-- Cleanup
-  - Clean up resources
-  - Delete the Landing Zone
-  - Delete the CloudFormation stack
-
-Example:
-
-```
-TODO
-
-```
 
 ---
 
 ## Errors
 The following errors are handled in the Control Tower wrapper class:
 
-| action                   | Error                     | Handling                                                                    |
-|--------------------------|---------------------------|-----------------------------------------------------------------------------|
-| `ListBaselines`          | AccessDeniedException     | Notify the user of insufficient permissions and exit.                       |
-| `EnableBaseline`         | ValidationException       | Handle case where baseline is already enabled and return None.              |
-| `ListControls`           | AccessDeniedException     | Notify the user of insufficient permissions and exit.                       |
-| `EnableControl`          | ValidationException       | Handle case where control is already enabled and return None.               |
-| `GetControlOperation`    | ResourceNotFound          | Notify the user that the control operation was not found.                   |
-| `DisableControl`         | ResourceNotFound          | Notify the user that the control was not found.                             | 
-| `ListLandingZones`       | AccessDeniedException     | Notify the user of insufficient permissions and exit.                       |
+| action                 | Error                 | Handling                                                       |
+|------------------------|-----------------------|----------------------------------------------------------------|
+| `ListBaselines`        | AccessDeniedException | Notify the user of insufficient permissions and exit.          |
+| `ListEnabledBaselines` | AccessDeniedException | Notify the user of insufficient permissions and exit.          |
+| `EnableBaseline`       | ValidationException   | Handle case where baseline is already enabled and return None. |
+| `DisableBaseline`      | ResourceNotFound      | Notify the user that the baseline was not found.               |
+| `ListControls`         | AccessDeniedException | Notify the user of insufficient permissions and exit.          |
+| `EnableControl`        | ValidationException   | Handle case where control is already enabled and return None.  |
+| `GetControlOperation`  | ResourceNotFound      | Notify the user that the control operation was not found.      |
+| `DisableControl`       | ResourceNotFound      | Notify the user that the control was not found.                | 
+| `ListLandingZones`     | AccessDeniedException | Notify the user of insufficient permissions and exit.          |
 
 
 ---
 
 ## Metadata
 
-| action / scenario               | metadata file              | metadata key                         |
-|---------------------------------|----------------------------|--------------------------------------|
-| `ListBaselines`                 | controltower_metadata.yaml | controltower_Hello                   |
-| `ListBaselines`                 | controltower_metadata.yaml | controltower_ListBaselines           |
-| `EnableBaseline`                | controltower_metadata.yaml | controltower_EnableBaseline          |
-| `EnableControl`                 | controltower_metadata.yaml | controltower_EnableControl           |
-| `GetControlOperation`           | controltower_metadata.yaml | controltower_GetControlOperation     |
-| `DisableControl`                | controltower_metadata.yaml | controltower_DisableControl          |
-| `ListLandingZones`              | controltower_metadata.yaml | controltower_ListLandingZones        |
-| `Control Tower Basics Scenario` | controltower_metadata.yaml | controltower_Scenario                |
+| action / scenario               | metadata file              | metadata key                      |
+|---------------------------------|----------------------------|-----------------------------------|
+| `ListBaselines`                 | controltower_metadata.yaml | controltower_Hello                |
+| `ListBaselines`                 | controltower_metadata.yaml | controltower_ListBaselines        |
+| `ListEnabledBaselines`          | controltower_metadata.yaml | controltower_ListEnabledBaselines |
+| `EnableBaseline`                | controltower_metadata.yaml | controltower_EnableBaseline       |
+| `DisableBaseline`               | controltower_metadata.yaml | controltower_DisableBaseline      |
+| `EnableControl`                 | controltower_metadata.yaml | controltower_EnableControl        |
+| `GetControlOperation`           | controltower_metadata.yaml | controltower_GetControlOperation  |
+| `DisableControl`                | controltower_metadata.yaml | controltower_DisableControl       |
+| `ListLandingZones`              | controltower_metadata.yaml | controltower_ListLandingZones     |
+| `Control Tower Basics Scenario` | controltower_metadata.yaml | controltower_Scenario             |
 

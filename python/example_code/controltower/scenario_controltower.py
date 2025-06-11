@@ -21,14 +21,12 @@ logger = logging.getLogger(__name__)
 class ControlTowerScenario:
     stack_name = ""
 
-    def __init__(self, controltower_wrapper, cloudformation_resource, org_client):
+    def __init__(self, controltower_wrapper, org_client):
         """
         :param controltower_wrapper: An instance of the ControlTowerWrapper class.
-        :param cloudformation_resource: A Boto3 CloudFormation resource.
         :param org_client: A Boto3 Organization client.
         """
         self.controltower_wrapper = controltower_wrapper
-        self.cf_resource = cloudformation_resource
         self.org_client = org_client
         self.stack = None
         self.ou_id = None
@@ -40,50 +38,40 @@ class ControlTowerScenario:
     def run_scenario(self):
         print("-" * 88)
         print(
-            "\tWelcome to the AWS ControlTower with ControlCatalog example scenario."
+            "\tWelcome to the AWS Control Tower with ControlCatalog example scenario."
         )
         print("-" * 88)
 
-        print("This demo will walk you through working with landing zones,")
+        print("This demo will walk you through working with AWS Control Tower for landing zones,")
         print("managing baselines, and working with controls.")
 
-        try:
-            self.account_id = boto3.client("sts").get_caller_identity()["Account"]
+        self.account_id = boto3.client("sts").get_caller_identity()["Account"]
 
-            # Landing Zone Setup.
-            print("Landing Zone operations:")
+        print("Some demo operations require the use of a landing zone. "
+              "You can use an existing landing zone or opt out of these operations in the demo."
+              "For instructions on how to set up a landing zone, "
+              "see https://docs.aws.amazon.com/controltower/latest/userguide/getting-started-from-console.html")
+        # List available landing zones
+        landing_zones = self.controltower_wrapper.list_landing_zones()
+        if landing_zones:
+            print("\nAvailable Landing Zones:")
+            for i, lz in enumerate(landing_zones, 1):
+                print(f"{i} {lz['arn']})")
 
-            # List available landing zones
-            landing_zones = self.controltower_wrapper.list_landing_zones()
-            if False:
-                print("\nAvailable Landing Zones:")
-                for i, lz in enumerate(landing_zones, 1):
-                    print(f"{i} {lz['arn']})")
-                
-                # Ask if user wants to use the first landing zone in the list
-                if q.ask(
-                    f"Do you want to use the first landing zone in the list ({landing_zones[0]['arn']})? (y/n) ",
-                    q.is_yesno,
-                ):
-                    self.use_landing_zone = True
-                    self.landing_zone_id = landing_zones[0]['arn']
-                    print(f"Using landing zone ID: {self.landing_zone_id})")
-                    # Set up organization and get Sandbox OU ID.
-                    sandbox_ou_id = self.setup_organization()
-                    # Store the OU ID for use in the CloudFormation template.
-                    self.ou_id = sandbox_ou_id
-                elif q.ask(
-                    f"Do you want to use a different existing Landing Zone for this demo? (y/n) ",
-                    q.is_yesno,
-                ):
-                    self.use_landing_zone = True
-                    self.landing_zone_id = q.ask("Enter landing zone id: ", q.non_empty)
-                    # Set up organization and get Sandbox OU ID.
-                    sandbox_ou_id = self.setup_organization()
-                    # Store the OU ID for use in the CloudFormation template.
-                    self.ou_id = sandbox_ou_id
+            # Ask if user wants to use the first landing zone in the list
+            if q.ask(
+                f"Do you want to use the first landing zone in the list ({landing_zones[0]['arn']})? (y/n) ",
+                q.is_yesno,
+            ):
+                self.use_landing_zone = True
+                self.landing_zone_id = landing_zones[0]['arn']
+                print(f"Using landing zone ID: {self.landing_zone_id})")
+                # Set up organization and get Sandbox OU ID.
+                sandbox_ou_id = self.setup_organization()
+                # Store the OU ID for use in the CloudFormation template.
+                self.ou_id = sandbox_ou_id
             elif q.ask(
-                f"Do you want to use an existing Landing Zone for this demo? (y/n) ",
+                f"Do you want to use a different existing Landing Zone for this demo? (y/n) ",
                 q.is_yesno,
             ):
                 self.use_landing_zone = True
@@ -93,123 +81,68 @@ class ControlTowerScenario:
                 # Store the OU ID for use in the CloudFormation template.
                 self.ou_id = sandbox_ou_id
 
+        # List and Enable Baseline.
+        control_tower_baseline = None
+        baselines = self.controltower_wrapper.list_baselines()
+        print("\nListing available Baselines:")
+        for baseline in baselines:
+            if baseline['name'] == 'AWSControlTowerBaseline':
+                control_tower_baseline = baseline
+            print(f"{baseline['name']}")
+
+        if self.use_landing_zone:
+            print("\nEnabling Control Tower Baseline")
+            baseline_arn = self.controltower_wrapper.enable_baseline(
+                self.ou_arn,
+                control_tower_baseline['arn'],
+                '4.0'
+            )
+            if baseline_arn:
+                print(f"Enabled baseline ARN: {baseline_arn}")
             else:
-                # Set up organization and get Sandbox OU ID.
-                sandbox_ou_id = self.setup_organization()
+                print("Baseline is already enabled for this target")
 
-                # Store the OU ID for use in the CloudFormation template.
-                self.ou_id = sandbox_ou_id
+        # List and Enable Controls.
+        print("Managing Controls:")
+        controls = self.controltower_wrapper.list_controls()
+        print("\nListing first 5 available Controls:")
+        for i, control in enumerate(controls[:5], 1):
+            print(f"{i}. {control['Name']}")
 
-                # Deploy the stack.
-                self.stack = self.deploy_stack(self.ou_id)
+        if self.use_landing_zone:
+            # Enable first control as an example.
+            control_arn = controls[0]['Arn']
+            target_ou = self.ou_arn
 
-                print(f"\nTo create a new Landing Zone as part of the demo, please provide a second account ID "
-                      f"in organization {self.ou_id}.")
-                print("\nYou may skip these sections if you do not have a second account ID, or"
-                      "\n\tif you do not wish to create a Landing Zone.")
+            print(f"\nEnabling control: {controls[0]['Name']} {control_arn}")
+            operation_id = self.controltower_wrapper.enable_control(
+                control_arn, target_ou)
 
-                create_landing_zone = q.ask(
-                    f"Do you want to proceed with the Landing Zone creation operations? (y/n) ",
-                    q.is_yesno,
-                )
-                if create_landing_zone:
-                    print("\nSetting up Landing Zone")
-                    second_account_id = q.ask("Enter a secondary account id: ", q.non_empty)
-                    manifest = self.create_landing_zone_manifest(self.account_id, second_account_id)
-                    lz_response = self.controltower_wrapper.create_landing_zone(manifest)
-                    if lz_response:
-                        self.landing_zone_id = lz_response['arn']
-                        print(f"Landing Zone ARN: {lz_response['arn']}")
-                        print(lz_response)
+            if operation_id:
+                print(f"Enabling control with operation id {operation_id}")
+            else:
+                print("Control is already enabled for this target")
+            # Wait for control operation to complete.
 
-                    # Wait for Landing Zone setup to complete.
-                    print("\nWaiting for Landing Zone setup to complete...")
-                    while True:
-                        status = self.controltower_wrapper.get_landing_zone_operation(
-                            lz_response['operationIdentifier'])
-                        print(f"Status: {status}")
-                        if status in ['SUCCEEDED', 'FAILED']:
-                            break
-                        datetime.time.sleep(30)
+            if operation_id:
+                while True:
+                    status = self.controltower_wrapper.get_control_operation(operation_id)
+                    print(f"Control operation status: {status}")
+                    if status in ['SUCCEEDED', 'FAILED']:
+                        break
+                    datetime.time.sleep(30)
 
-                    if status == 'SUCCEEDED':
-                        print("\nLanding zone succeeded.")
-                        self.use_landing_zone = True
-
-            # List and Enable Baseline.
-            control_tower_baseline = None
-            baselines = self.controltower_wrapper.list_baselines()
-            print("\nListing available Baselines:")
-            for baseline in baselines:
-                if baseline['name'] == 'AWSControlTowerBaseline':
-                    control_tower_baseline = baseline
-                print(f"{baseline['name']}")
-
-            if self.use_landing_zone:
-                print("\nEnabling Control Tower Baseline")
-                baseline_arn = self.controltower_wrapper.enable_baseline(
-                    self.ou_arn,
-                    control_tower_baseline['arn'],
-                    '4.0'
-                )
-                if baseline_arn:
-                    print(f"Enabled baseline ARN: {baseline_arn}")
-                else:
-                    print("Baseline is already enabled for this target")
-
-            # List and Enable Controls.
-            print("Managing Controls:")
-            controls = self.controltower_wrapper.list_controls()
-            print("\nListing first 5 available Controls:")
-            for i, control in enumerate(controls[:5], 1):
-                print(f"{i}. {control['Name']}")
-
-            if self.use_landing_zone:
-                # Enable first control as an example.
-                control_arn = controls[0]['Arn']
-                target_ou = self.ou_arn
-
-                print(f"\nEnabling control: {controls[0]['Name']} {control_arn}")
-                operation_id = self.controltower_wrapper.enable_control(
-                    control_arn, target_ou)
-
-                if operation_id:
-                    print(f"Enabling control with operation id {operation_id}")
-                else:
-                    print("Control is already enabled for this target")
-                # Wait for control operation to complete.
-
-                if operation_id:
-                    while True:
-                        status = self.controltower_wrapper.get_control_operation(operation_id)
-                        print(f"Control operation status: {status}")
-                        if status in ['SUCCEEDED', 'FAILED']:
-                            break
-                        datetime.time.sleep(30)
-
-                    if status == 'SUCCEEDED':
-                        # Disable the control.
-                        print("\nDisabling the control...")
-                        operation_id = self.controltower_wrapper.disable_control(
-                            control_arn, target_ou)
-                        print(f"Disable operation ID: {operation_id}")
+                if status == 'SUCCEEDED':
+                    # Disable the control.
+                    print("\nDisabling the control...")
+                    operation_id = self.controltower_wrapper.disable_control(
+                        control_arn, target_ou)
+                    print(f"Disable operation ID: {operation_id}")
 
             print("This concludes the scenario.")
-            if q.ask(
-                    f"Clean up resources created by the scenario? (y/n) ",
-                    q.is_yesno,
-            ):
-                self.destroy_resources(self.stack, self.landing_zone_id)
-                print("Removed resources created by the scenario.")
+
             print("Thanks for watching!")
             print("-" * 88)
-        except Exception:
-            logging.exception("Something went wrong with the demo!")
-            if q.ask(
-                    f"Clean up resources created by the scenario? (y/n) ",
-                    q.is_yesno,
-            ):
-                self.destroy_resources(self.stack, self.landing_zone_id)
 
     def setup_organization(self):
         """
@@ -308,118 +241,13 @@ class ControlTowerScenario:
 
         return sandbox_ou_id
 
-    def deploy_stack(self, sandbox_ou_id: str):
-        """
-        Deploys prerequisite resources used by the scenario. The resources are
-        defined in the associated `setup.yaml` AWS CloudFormation script and are deployed
-        as a CloudFormation stack, so they can be easily managed and destroyed.
-
-        :param sandbox_ou_id: The id of a sandbox organizational unit.
-        """
-
-        print("Let's deploy the stack for resource creation.")
-        stack_name = q.ask("Enter a name for the stack: ", q.non_empty)
-
-        with open(
-            "../../../scenarios/basics/controltower/resources/cfn_template.yaml"
-        ) as setup_file:
-            setup_template = setup_file.read()
-        print(f"Creating {stack_name}.")
-        stack = self.cf_resource.create_stack(
-            StackName=stack_name,
-            TemplateBody=setup_template,
-            Capabilities=["CAPABILITY_NAMED_IAM"],
-            Parameters=[
-                {
-                    "ParameterKey": "ParentOrganizationId",
-                    "ParameterValue": sandbox_ou_id,
-                },
-            ],
-        )
-        print("Waiting for stack to deploy. This typically takes a minute or two.")
-        waiter = self.cf_resource.meta.client.get_waiter("stack_create_complete")
-        waiter.wait(StackName=stack.name)
-        stack.load()
-        print(f"Stack status: {stack.stack_status}")
-
-        return stack
-
-    # snippet-start:[python.example_code.controltower.LandingZoneManifest]
-    def create_landing_zone_manifest(self, account_id: str, second_account_id: str):
-        """
-        Creates a landing zone manifest with the specified account ids.
-
-        :param account_id: The id of the current account.
-        :param second_account_id: The id of a second account. The landing zone manifest requires two different accounts.
-        """
-
-        # Create and return manifest structure.
-        return {
-            "governedRegions": ["us-east-1"],
-            "organizationStructure": {
-                "security": {
-                    "name": "SecurityExample"
-                },
-                "sandbox": {
-                    "name": "SandboxExample"
-                }
-            },
-            "securityRoles": {
-                "accountId": f"{account_id}"
-            },
-            "accessManagement": {
-                "enabled": True
-            },
-            "centralizedLogging": {
-                "accountId": f"{second_account_id}",
-                "configurations": {
-                    "loggingBucket": {
-                        "retentionDays": 60
-                    },
-                    "accessLoggingBucket": {
-                        "retentionDays": 60
-                    }
-                },
-                "enabled": True
-            }
-        }
-
-    # snippet-end:[python.example_code.controltower.LandingZoneManifest]
-
-    def destroy_resources(self, stack, landing_zone_identifier):
-        """
-        Destroys the resources managed by the CloudFormation stack, and the CloudFormation
-        stack itself.
-
-        :param stack: The CloudFormation stack that manages the example resources.
-        :param landing_zone_identifier: The landing zone identifier.
-        """
-
-        print(f"Cleaning up resources.")
-
-        if landing_zone_identifier:
-            if q.ask(
-                f"Do you want to clean up landing zone {landing_zone_identifier}? (y/n) ",
-                q.is_yesno,
-            ):
-                self.controltower_wrapper.delete_landing_zone(landing_zone_identifier)
-
-        if stack:
-            print(f"Deleting {stack.name}.")
-            stack.delete()
-            print("Waiting for stack removal. This may take a few minutes.")
-            waiter = self.cf_resource.meta.client.get_waiter("stack_delete_complete")
-            waiter.wait(StackName=stack.name)
-            print("Stack delete complete.")
-
 
 if __name__ == "__main__":
     try:
-        cf = boto3.resource("cloudformation")
         org = boto3.client("organizations")
         control_tower_wrapper = ControlTowerWrapper.from_client()
 
-        scenario = ControlTowerScenario(control_tower_wrapper, cf, org)
+        scenario = ControlTowerScenario(control_tower_wrapper, org)
         scenario.run_scenario()
     except Exception:
         logging.exception("Something went wrong with the scenario.")
