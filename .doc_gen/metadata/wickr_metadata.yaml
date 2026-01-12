@@ -1,0 +1,170 @@
+wickr_CreateNetwork:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/wickr
+          excerpts:
+            - snippet_tags:
+                - python.example_code.wickr.create_network
+  services:
+    wickr: {CreateNetwork}
+wickr_ListNetworks:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/wickr
+          excerpts:
+            - snippet_tags:
+                - python.example_code.wickr.list_networks
+  services:
+    wickr: {ListNetworks}
+wickr_UpdateNetworkSettings:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/wickr
+          excerpts:
+            - snippet_tags:
+                - python.example_code.wickr.update_network_settings
+  services:
+    wickr: {UpdateNetworkSettings}
+wickr_CreateUser:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/wickr
+          excerpts:
+            - snippet_tags:
+                - python.example_code.wickr.create_user
+  services:
+    wickr: {CreateUser}
+wickr_CreateRoom:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/wickr
+          excerpts:
+            - snippet_tags:
+                - python.example_code.wickr.create_room
+  services:
+    wickr: {CreateRoom}
+wickr_InviteToRoom:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/wickr
+          excerpts:
+            - snippet_tags:
+                - python.example_code.wickr.invite_to_room
+  services:
+    wickr: {InviteToRoom}
+wickr_UpdateRoomPermissions:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/wickr
+          excerpts:
+            - snippet_tags:
+                - python.example_code.wickr.update_room_permissions
+  services:
+    wickr: {UpdateRoomPermissions}
+wickr_SendMessage:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/wickr
+          excerpts:
+            - snippet_tags:
+                - python.example_code.wickr.send_message
+  services:
+    wickr: {SendMessage}
+wickr_UploadFile:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/wickr
+          excerpts:
+            - snippet_tags:
+                - python.example_code.wickr.upload_file
+  services:
+    wickr: {UploadFile}
+wickr_SetMessageExpiration:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/wickr
+          excerpts:
+            - snippet_tags:
+                - python.example_code.wickr.set_message_expiration
+  services:
+    wickr: {SetMessageExpiration}
+wickr_EnableBurnOnRead:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/wickr
+          excerpts:
+            - snippet_tags:
+                - python.example_code.wickr.enable_burn_on_read
+  services:
+    wickr: {EnableBurnOnRead}
+wickr_GetRoomMembers:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/wickr
+          excerpts:
+            - snippet_tags:
+                - python.example_code.wickr.get_room_members
+  services:
+    wickr: {GetRoomMembers}
+wickr_GetAuditLogs:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/wickr
+          excerpts:
+            - snippet_tags:
+                - python.example_code.wickr.get_audit_logs
+  services:
+    wickr: {GetAuditLogs}
+wickr_DeleteNetwork:
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/wickr
+          excerpts:
+            - snippet_tags:
+                - python.example_code.wickr.delete_network
+  services:
+    wickr: {DeleteNetwork}
+wickr_Scenario_Basics:
+  title: Get started with &Wickr; using an &AWS; SDK
+  title_abbrev: Get started with &Wickr;
+  synopsis: learn core operations for &Wickr; by creating secure communication networks, managing users, and configuring security features.
+  category: Scenarios
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/wickr
+          excerpts:
+            - description: Create an interactive scenario that demonstrates &Wickr; network management, user creation, secure messaging, and compliance features.
+              snippet_tags:
+                - python.example_code.wickr.WickrScenario
+  services:
+    wickr: {CreateNetwork, CreateUser, CreateRoom, SendMessage, UploadFile, SetMessageExpiration, EnableBurnOnRead, GetAuditLogs, DeleteNetwork}
