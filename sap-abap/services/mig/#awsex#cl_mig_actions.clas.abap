@@ -180,7 +180,7 @@ CLASS /AWSEX/CL_MIG_ACTIONS IMPLEMENTATION.
 
     " snippet-start:[mig.abapv1.getdatastore]
     TRY.
-        " iv_datastore_id = '1234567890123456789012345678901234567890'
+        " iv_datastore_id = '1234567890123456789012345678901234567891'
         oo_result = lo_mig->getdatastore( iv_datastoreid = iv_datastore_id ).
         DATA(lo_properties) = oo_result->get_datastoreproperties( ).
         DATA(lv_name) = lo_properties->get_datastorename( ).
