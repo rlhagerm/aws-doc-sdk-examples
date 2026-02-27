@@ -165,10 +165,12 @@ class MonitoringSnsWrapper:
     # snippet-start:[python.example_code.sns.GetSubscriptionAttributes_Monitoring]
     def get_subscription_status(self, subscription_arn: str) -> Optional[str]:
         """
-        Gets the status of a subscription.
+        Gets the confirmation status of a subscription.
 
-        :param subscription_arn: The ARN of the subscription.
-        :return: The subscription status or None if pending.
+        :param subscription_arn: The ARN of the subscription to check.
+        :return: 'PendingConfirmation' if the subscription is not yet confirmed,
+                 'true' if pending confirmation (from API), 'false' if confirmed,
+                 or None if unable to determine status.
         :raises ClientError: If the attribute retrieval fails.
         """
         try:

@@ -104,22 +104,33 @@ This scenario demonstrates how to:
         print("-" * 80)
 
     def _setup_phase(self) -> None:
-        """Phase 1: Setup - Create SNS topic, subscription, CloudWatch alarm, and dashboard."""
-        print("\n" + "=" * 80)
-        print("Phase 1: Setup Resources")
-        print("=" * 80)
+        """
+        Phase 1: Setup - Create SNS topic, subscription, CloudWatch alarm, and dashboard.
 
-        # Get email address for notifications
+        This phase creates all the AWS resources needed for the monitoring scenario:
+        1. SNS topic - For sending alarm notifications
+        2. Email subscription - To receive notifications at the user's email
+        3. CloudWatch alarm - To monitor the custom metric and trigger on threshold
+        4. CloudWatch dashboard - To visualize the metric data
+        """
+        print("\n" + "-" * 80)
+        print("Phase 1: Setup Resources")
+        print("-" * 80)
+
+        # Step 1: Get email address for SNS notifications
+        # The user must confirm the subscription via email before receiving alerts
         self.email_address = q.ask(
             "\nEnter an email address to receive alarm notifications: ", q.non_empty
         )
 
-        # Create SNS topic
+        # Step 2: Create SNS topic for alarm notifications
+        # This topic will be used as the alarm action target
         print("\nCreating SNS topic...")
         self.topic_arn = self.sns_wrapper.create_topic(DEFAULT_TOPIC_NAME)
         print(f"SNS topic created: {self.topic_arn}")
 
-        # Subscribe email to topic
+        # Step 3: Subscribe the email address to the SNS topic
+        # Email subscriptions require confirmation - the user will receive a confirmation email
         self.subscription_arn = self.sns_wrapper.subscribe_email(
             self.topic_arn, self.email_address
         )
@@ -127,19 +138,22 @@ This scenario demonstrates how to:
             "Email subscription created. Please check your email and confirm the subscription."
         )
 
-        # Get alarm name from user
+        # Step 4: Get alarm configuration from user
+        # Alarm names must be unique within the AWS account and region
         self.alarm_name = q.ask(
             "\nEnter a name for the CloudWatch alarm: ", q.non_empty
         )
 
-        # Get metric namespace (with default)
+        # Step 5: Get metric namespace (optional - uses default if not provided)
+        # Namespaces help organize custom metrics
         namespace_input = input(
             f"\nEnter a name for the custom metric namespace (default: {DEFAULT_METRIC_NAMESPACE}): "
         ).strip()
         if namespace_input:
             self.metric_namespace = namespace_input
 
-        # Create CloudWatch alarm
+        # Step 6: Create CloudWatch alarm with SNS notification
+        # The alarm monitors the custom metric and triggers when threshold is breached
         print(f"\nCreating CloudWatch alarm '{self.alarm_name}'...")
         print(
             f"Alarm will trigger when {self.metric_name} >= {DEFAULT_ALARM_THRESHOLD} "
@@ -345,9 +359,13 @@ This scenario demonstrates how to:
         """
         Waits for the alarm to reach a specific state.
 
-        :param target_state: The target alarm state to wait for.
-        :param max_wait_seconds: Maximum time to wait in seconds.
-        :return: True if the target state was reached, False otherwise.
+        Note: CloudWatch does not provide a built-in waiter for alarm state changes.
+        This method implements manual polling as the recommended approach for monitoring
+        alarm state transitions. The polling interval and timeout are configurable.
+
+        :param target_state: The target alarm state to wait for (e.g., 'ALARM', 'OK').
+        :param max_wait_seconds: Maximum time to wait in seconds (default: 120).
+        :return: True if the target state was reached, False if timeout occurred.
         """
         start_time = time.time()
         check_interval = 10
