@@ -1157,3 +1157,32 @@ cloudwatch_Scenario_GettingStarted:
                 - cwt.abapv1.getting_started_with_cwt
   services:
     cloudwatch: {PutMetricAlarm, DisableAlarmActions, DescribeAlarms, DeleteAlarms}
+cloudwatch_Scenario_SnsMonitoring:
+  title: Create a &CW; monitoring solution with &SNS; alerts using an &AWS; SDK
+  title_abbrev: CloudWatch monitoring with SNS alerts
+  synopsis_list:
+    - Create an &SNS; topic for alarm notifications.
+    - Subscribe an email address to receive notifications.
+    - Create a &CW; alarm that monitors a custom metric.
+    - Create a &CW; dashboard to visualize the metric.
+    - Publish metric data to trigger the alarm.
+    - View alarm history and state changes.
+    - Clean up all created resources.
+  category: Scenarios
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/sns/monitoring
+          sdkguide:
+          excerpts:
+            - description: Create wrapper classes for CloudWatch and SNS operations.
+              snippet_tags:
+                - python.example_code.cloudwatch.MonitoringCloudWatchWrapper.class
+                - python.example_code.sns.MonitoringSnsWrapper.class
+            - description: Run an interactive scenario that demonstrates CloudWatch monitoring with SNS alerts.
+              snippet_tags:
+                - python.example_code.cloudwatch.Scenario_SnsMonitoring
+  services:
+    cloudwatch: {PutMetricAlarm, PutMetricData, DescribeAlarms, DescribeAlarmHistory, DeleteAlarms, PutDashboard, DeleteDashboards}
+    sns: {CreateTopic, Subscribe, Unsubscribe, DeleteTopic}
