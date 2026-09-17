@@ -80,16 +80,36 @@ class ObjectAnnotationsScenario:
     # Setup
     # ------------------------------------------------------------------
     def _setup(self) -> None:
-        """Creates a bucket and uploads a test object."""
-        prefix = q.ask("Enter a bucket name prefix (or press Enter for 'annotations-demo'): ")
-        if not prefix.strip():
-            prefix = "annotations-demo"
-        suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
-        self.bucket_name = f"{prefix}-{suffix}"
+        """Creates a bucket and uploads a test object.
 
-        print(f"\nCreating bucket '{self.bucket_name}'...")
-        self.s3_wrapper.create_bucket(self.bucket_name)
-        print("Bucket created successfully.\n")
+        Prompts for a bucket name prefix and appends a random suffix. If the
+        resulting bucket already exists and is owned by you
+        (BucketAlreadyOwnedByYou), prompt for a different prefix and try again
+        rather than terminating the scenario.
+        """
+        while True:
+            prefix = q.ask(
+                "Enter a bucket name prefix (or press Enter for 'annotations-demo'): "
+            )
+            if not prefix.strip():
+                prefix = "annotations-demo"
+            suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+            self.bucket_name = f"{prefix}-{suffix}"
+
+            print(f"\nCreating bucket '{self.bucket_name}'...")
+            try:
+                self.s3_wrapper.create_bucket(self.bucket_name)
+                print("Bucket created successfully.\n")
+                break
+            except ClientError as err:
+                if err.response["Error"]["Code"] == "BucketAlreadyOwnedByYou":
+                    print(
+                        f"A bucket named '{self.bucket_name}' already exists and is "
+                        "owned by you. Please enter a different prefix."
+                    )
+                    self.bucket_name = None
+                    continue
+                raise
 
         print(f"Uploading test object '{OBJECT_KEY}'...")
         response = self.s3_wrapper.put_object(
