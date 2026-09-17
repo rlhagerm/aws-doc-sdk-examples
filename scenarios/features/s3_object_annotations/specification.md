@@ -1,6 +1,6 @@
 # Amazon S3 Object Annotations Specification
 
-This document contains a draft specification for the *Amazon S3 Object Annotations Feature Scenario*, a feature scenario that showcases the new S3 Object Annotations capability using AWS SDKs. It is primarily intended for the AWS code examples team to use while developing this example in additional languages.
+This document contains the specification for the *Amazon S3 Object Annotations Feature Scenario*, a feature scenario that showcases the new S3 Object Annotations capability using AWS SDKs. It is primarily intended for the AWS code examples team to use while developing this example in additional languages.
 
 Amazon S3 now supports object annotations — named payloads of 1 byte to 1 MiB that you can attach to S3 objects. Each object can have up to 1,000 annotations in flexible formats like JSON, XML, or plain text. Annotations can be added, retrieved, listed, updated, and deleted independently of the object itself, making it easy to enrich stored data with evolving context such as ML inference results, content classifications, processing status, or business metadata — all without re-uploading or modifying the original object.
 
@@ -25,7 +25,7 @@ This scenario demonstrates the full lifecycle of S3 object annotations: creating
 
 - [CreateBucket](https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateBucket.html) — Creates a new S3 bucket to host test objects and annotations.
 - [PutObject](https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html) — Uploads a test object to the bucket.
-- [PutObjectAnnotation](https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObjectAnnotation.html) — Attaches a named annotation payload (1 byte to 1 MiB) to an S3 object. Required parameters: `Bucket`, `Key`, `AnnotationName`, `AnnotationPayload`. Optional parameters include `VersionId`, `ObjectIfMatch` (conditional write based on object ETag), and `ChecksumAlgorithm`. Returns the annotation ETag, object version ID, and checksum values.
+- [PutObjectAnnotation](https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObjectAnnotation.html) — Attaches a named annotation payload (1 byte to 1 MiB) to an S3 object. Required parameters: `Bucket`, `Key`, `AnnotationName`, `AnnotationPayload`. Annotation names must be 1-512 bytes and may contain only Unicode letters, digits, underscores (`_`), periods (`.`), and hyphens (`-`); they cannot start with `aws` or `s3`, and cannot contain `/`. This scenario uses a period as a namespace delimiter (e.g. `ml.sentiment-analysis`) for prefix filtering. Optional parameters include `VersionId`, `ObjectIfMatch` (conditional write based on object ETag), and `ChecksumAlgorithm`. Returns the annotation ETag, object version ID, and checksum values.
 - [GetObjectAnnotation](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObjectAnnotation.html) — Retrieves a specific annotation by name from an S3 object. Required parameters: `Bucket`, `Key`, `AnnotationName`. Optional parameters include `VersionId` and `ChecksumMode` (set to `ENABLED` to validate checksums). Returns the annotation payload, ETag, content length, last modified date, and checksum values.
 - [ListObjectAnnotations](https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectAnnotations.html) — Lists annotations attached to an S3 object. Supports pagination and prefix filtering. Required parameters: `Bucket`, `Key`. Optional parameters include `AnnotationPrefix`, `MaxAnnotationResults`, `ContinuationToken`, and `VersionId`. Returns a list of `AnnotationEntry` items (each with `AnnotationName`, `LastModified`, `ETag`, `Size`), along with pagination fields (`IsTruncated`, `NextContinuationToken`).
 - [DeleteObjectAnnotation](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjectAnnotation.html) — Permanently deletes a specific annotation from an S3 object. Required parameters: `Bucket`, `Key`, `AnnotationName`. Optional parameters include `VersionId` and `ObjectIfMatch` (conditional delete using the object's ETag to prevent race conditions). Returns the object version ID. Note: deletion is permanent; annotations are not independently versioned.
@@ -93,13 +93,13 @@ Object uploaded. ETag: "d41d8cd98f00b204e9800998ecf8427e"
 
 4. **Put a second annotation (JSON).**
    - Call `PutObjectAnnotation` with:
-     - `AnnotationName`: `ml/sentiment-analysis`
+     - `AnnotationName`: `ml.sentiment-analysis`
      - `AnnotationPayload`: `{"sentiment": "positive", "confidence": 0.95, "model": "v2.1"}`
    - Display the annotation name and returned ETag.
 
 5. **Put a third annotation (classification label).**
    - Call `PutObjectAnnotation` with:
-     - `AnnotationName`: `ml/content-classification`
+     - `AnnotationName`: `ml.content-classification`
      - `AnnotationPayload`: `{"category": "technical-documentation", "language": "en", "topics": ["cloud", "storage"]}`
    - Display the annotation name and returned ETag.
 
@@ -109,8 +109,8 @@ Example output:
 Attaching annotations to 'sample-data.txt'...
 
   Added annotation 'processing-status' (ETag: "abc123...")
-  Added annotation 'ml/sentiment-analysis' (ETag: "def456...")
-  Added annotation 'ml/content-classification' (ETag: "ghi789...")
+  Added annotation 'ml.sentiment-analysis' (ETag: "def456...")
+  Added annotation 'ml.content-classification' (ETag: "ghi789...")
 
 3 annotations attached successfully.
 --------------------------------------------------------------------------------
@@ -119,7 +119,7 @@ Attaching annotations to 'sample-data.txt'...
 ### Retrieve and list annotations
 
 6. **Get a specific annotation by name.**
-   - Call `GetObjectAnnotation` with `AnnotationName`: `ml/sentiment-analysis`.
+   - Call `GetObjectAnnotation` with `AnnotationName`: `ml.sentiment-analysis`.
    - Display the annotation payload, size, ETag, and last modified date.
 
 7. **List all annotations on the object.**
@@ -127,13 +127,13 @@ Attaching annotations to 'sample-data.txt'...
    - Display each annotation entry: name, size, ETag, and last modified date.
 
 8. **List annotations with a prefix filter.**
-   - Call `ListObjectAnnotations` with `AnnotationPrefix`: `ml/`.
+   - Call `ListObjectAnnotations` with `AnnotationPrefix`: `ml.`.
    - Display only the annotations matching the prefix, demonstrating how prefix filtering narrows results.
 
 Example output:
 ```
 --------------------------------------------------------------------------------
-Retrieving annotation 'ml/sentiment-analysis'...
+Retrieving annotation 'ml.sentiment-analysis'...
 
   Payload: {"sentiment": "positive", "confidence": 0.95, "model": "v2.1"}
   Size: 62 bytes
@@ -142,14 +142,14 @@ Retrieving annotation 'ml/sentiment-analysis'...
 
 Listing all annotations on 'sample-data.txt'...
   Found 3 annotation(s):
-    1. "ml/content-classification" (87 bytes)
-    2. "ml/sentiment-analysis" (62 bytes)
+    1. "ml.content-classification" (87 bytes)
+    2. "ml.sentiment-analysis" (62 bytes)
     3. "processing-status" (58 bytes)
 
-Listing annotations with prefix 'ml/'...
+Listing annotations with prefix 'ml.'...
   Found 2 annotation(s):
-    1. "ml/content-classification" (87 bytes)
-    2. "ml/sentiment-analysis" (62 bytes)
+    1. "ml.content-classification" (87 bytes)
+    2. "ml.sentiment-analysis" (62 bytes)
 --------------------------------------------------------------------------------
 ```
 
@@ -191,7 +191,7 @@ Verifying the update...
     - Display the remaining annotation names.
 
 14. **Delete the remaining annotations.**
-    - Call `DeleteObjectAnnotation` for each remaining annotation (`ml/sentiment-analysis`, `ml/content-classification`).
+    - Call `DeleteObjectAnnotation` for each remaining annotation (`ml.sentiment-analysis`, `ml.content-classification`).
     - Display deletion confirmations.
 
 15. **Verify all annotations are removed.**
@@ -208,12 +208,12 @@ Attempting to retrieve deleted annotation 'processing-status'...
 
 Listing remaining annotations...
   Found 2 annotation(s):
-    1. "ml/content-classification"
-    2. "ml/sentiment-analysis"
+    1. "ml.content-classification"
+    2. "ml.sentiment-analysis"
 
 Deleting remaining annotations...
-  Deleted 'ml/sentiment-analysis'.
-  Deleted 'ml/content-classification'.
+  Deleted 'ml.sentiment-analysis'.
+  Deleted 'ml.content-classification'.
 
 Verifying all annotations removed...
   0 annotations remaining. All annotations cleaned up.
@@ -244,7 +244,7 @@ Cleanup complete!
 After running this scenario, the user will understand how to:
 - Attach named annotations (up to 1,000 per object, each up to 1 MiB) to S3 objects.
 - Retrieve specific annotations by name.
-- List all annotations on an object, with optional prefix filtering for organized naming schemes (e.g., `ml/`, `audit/`).
+- List all annotations on an object, with optional prefix filtering for organized naming schemes (e.g., `ml.`, `audit.`).
 - Update annotations by overwriting them with `PutObjectAnnotation`.
 - Permanently delete annotations, and confirm deletion by handling the `NoSuchAnnotation` error.
 - Use annotations to store evolving metadata (ML results, processing status, classifications) without modifying the original object.
