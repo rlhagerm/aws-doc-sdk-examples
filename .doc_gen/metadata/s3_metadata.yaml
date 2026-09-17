@@ -4035,6 +4035,7 @@ s3_Hello_ObjectAnnotations:
   title: Hello &S3; Object Annotations
   title_abbrev: Hello Object Annotations
   synopsis: list &S3; object annotations.
+  category: Hello
   languages:
     Python:
       versions:
@@ -4049,7 +4050,7 @@ s3_Hello_ObjectAnnotations:
 s3_Scenario_ObjectAnnotations:
   title: Manage &S3; object annotations using an &AWS; SDK
   title_abbrev: Manage object annotations
-  category: feature
+  category: Feature
   synopsis_list:
     - Create an &S3; bucket.
     - Upload a test object.

@@ -107,17 +107,21 @@ class ObjectAnnotationsScenario:
         print(SEPARATOR)
         print(f"Attaching annotations to '{OBJECT_KEY}'...\n")
 
+        # Annotation names may contain Unicode letters, digits, underscores,
+        # periods, and hyphens (1-512 bytes) and cannot start with "aws" or
+        # "s3". A period is used here as a namespace delimiter (e.g. "ml.") so
+        # the names stay valid while still demonstrating prefix filtering.
         annotations = [
             (
                 "processing-status",
                 '{"status": "pending", "submitted": "2026-09-16T10:00:00Z"}',
             ),
             (
-                "ml/sentiment-analysis",
+                "ml.sentiment-analysis",
                 '{"sentiment": "positive", "confidence": 0.95, "model": "v2.1"}',
             ),
             (
-                "ml/content-classification",
+                "ml.content-classification",
                 '{"category": "technical-documentation", "language": "en", '
                 '"topics": ["cloud", "storage"]}',
             ),
@@ -139,10 +143,10 @@ class ObjectAnnotationsScenario:
     def _retrieve_and_list_annotations(self) -> None:
         """Retrieves a specific annotation and lists all/filtered annotations."""
         print(SEPARATOR)
-        print("Retrieving annotation 'ml/sentiment-analysis'...\n")
+        print("Retrieving annotation 'ml.sentiment-analysis'...\n")
 
         result = self.s3_wrapper.get_object_annotation(
-            self.bucket_name, OBJECT_KEY, "ml/sentiment-analysis"
+            self.bucket_name, OBJECT_KEY, "ml.sentiment-analysis"
         )
         print(f"  Payload: {result['Payload']}")
         print(f"  Size: {result['ContentLength']} bytes")
@@ -157,9 +161,9 @@ class ObjectAnnotationsScenario:
         for i, ann in enumerate(all_annotations, 1):
             print(f"    {i}. \"{ann['AnnotationName']}\" ({ann['Size']} bytes)")
 
-        print("\nListing annotations with prefix 'ml/'...")
+        print("\nListing annotations with prefix 'ml.'...")
         ml_annotations = self.s3_wrapper.list_object_annotations(
-            self.bucket_name, OBJECT_KEY, annotation_prefix="ml/"
+            self.bucket_name, OBJECT_KEY, annotation_prefix="ml."
         )
         print(f"  Found {len(ml_annotations)} annotation(s):")
         for i, ann in enumerate(ml_annotations, 1):
