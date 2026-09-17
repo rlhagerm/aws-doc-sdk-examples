@@ -3971,3 +3971,104 @@ s3_CreatePresignedPost:
                 - S3.dotnetv4.Scenario_CreatePresignedPostAsync
   services:
     s3: {CreatePresignedPost}
+s3_PutObjectAnnotation:
+  title: Attach an annotation to an &S3; object using an &AWS; SDK
+  title_abbrev: PutObjectAnnotation
+  synopsis: attach an annotation to an &S3; object.
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/s3/scenarios/object_annotations
+          excerpts:
+            - description:
+              snippet_tags:
+                - python.example_code.s3.PutObjectAnnotation
+  services:
+    s3: {PutObjectAnnotation}
+s3_GetObjectAnnotation:
+  title: Retrieve an annotation from an &S3; object using an &AWS; SDK
+  title_abbrev: GetObjectAnnotation
+  synopsis: retrieve an annotation from an &S3; object.
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/s3/scenarios/object_annotations
+          excerpts:
+            - description:
+              snippet_tags:
+                - python.example_code.s3.GetObjectAnnotation
+  services:
+    s3: {GetObjectAnnotation}
+s3_ListObjectAnnotations:
+  title: List annotations on an &S3; object using an &AWS; SDK
+  title_abbrev: ListObjectAnnotations
+  synopsis: list annotations on an &S3; object.
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/s3/scenarios/object_annotations
+          excerpts:
+            - description:
+              snippet_tags:
+                - python.example_code.s3.ListObjectAnnotations
+  services:
+    s3: {ListObjectAnnotations}
+s3_DeleteObjectAnnotation:
+  title: Delete an annotation from an &S3; object using an &AWS; SDK
+  title_abbrev: DeleteObjectAnnotation
+  synopsis: delete an annotation from an &S3; object.
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/s3/scenarios/object_annotations
+          excerpts:
+            - description:
+              snippet_tags:
+                - python.example_code.s3.DeleteObjectAnnotation
+  services:
+    s3: {DeleteObjectAnnotation}
+s3_Hello_ObjectAnnotations:
+  title: Hello &S3; Object Annotations
+  title_abbrev: Hello Object Annotations
+  synopsis: list &S3; object annotations.
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/s3/scenarios/object_annotations
+          excerpts:
+            - description: List annotations on an &S3; object.
+              snippet_tags:
+                - python.example_code.s3.Hello_ObjectAnnotations
+  services:
+    s3: {ListObjectAnnotations}
+s3_Scenario_ObjectAnnotations:
+  title: Manage &S3; object annotations using an &AWS; SDK
+  title_abbrev: Manage object annotations
+  category: feature
+  synopsis_list:
+    - Create an &S3; bucket.
+    - Upload a test object.
+    - Attach multiple annotations to the object.
+    - Retrieve and list annotations with optional prefix filtering.
+    - Update an existing annotation.
+    - Delete annotations and verify removal.
+    - Clean up all resources.
+  languages:
+    Python:
+      versions:
+        - sdk_version: 3
+          github: python/example_code/s3/scenarios/object_annotations
+          excerpts:
+            - description: Run an interactive scenario at a command prompt.
+              snippet_tags:
+                - python.example_code.s3.ObjectAnnotationsScenario
+            - description: Create a class that wraps &S3; Object Annotations operations.
+              snippet_tags:
+                - python.example_code.s3.S3AnnotationsWrapper.decl
+  services:
+    s3: {CreateBucket, PutObject, PutObjectAnnotation, GetObjectAnnotation, ListObjectAnnotations, DeleteObjectAnnotation, DeleteObject, DeleteBucket}
