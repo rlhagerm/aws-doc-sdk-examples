@@ -3972,9 +3972,6 @@ s3_CreatePresignedPost:
   services:
     s3: {CreatePresignedPost}
 s3_PutObjectAnnotation:
-  title: Attach an annotation to an &S3; object using an &AWS; SDK
-  title_abbrev: PutObjectAnnotation
-  synopsis: attach an annotation to an &S3; object.
   languages:
     Python:
       versions:
@@ -3987,9 +3984,6 @@ s3_PutObjectAnnotation:
   services:
     s3: {PutObjectAnnotation}
 s3_GetObjectAnnotation:
-  title: Retrieve an annotation from an &S3; object using an &AWS; SDK
-  title_abbrev: GetObjectAnnotation
-  synopsis: retrieve an annotation from an &S3; object.
   languages:
     Python:
       versions:
@@ -4002,9 +3996,6 @@ s3_GetObjectAnnotation:
   services:
     s3: {GetObjectAnnotation}
 s3_ListObjectAnnotations:
-  title: List annotations on an &S3; object using an &AWS; SDK
-  title_abbrev: ListObjectAnnotations
-  synopsis: list annotations on an &S3; object.
   languages:
     Python:
       versions:
@@ -4017,9 +4008,6 @@ s3_ListObjectAnnotations:
   services:
     s3: {ListObjectAnnotations}
 s3_DeleteObjectAnnotation:
-  title: Delete an annotation from an &S3; object using an &AWS; SDK
-  title_abbrev: DeleteObjectAnnotation
-  synopsis: delete an annotation from an &S3; object.
   languages:
     Python:
       versions:

@@ -32,25 +32,6 @@ This scenario demonstrates the full lifecycle of S3 object annotations: creating
 - [DeleteObject](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html) — Removes the test object from the bucket during cleanup.
 - [DeleteBucket](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteBucket.html) — Deletes the S3 bucket during cleanup.
 
-## Hello S3 Object Annotations
-
-The Hello example is a standalone, runnable example that demonstrates the simplest use of the S3 object annotations feature.
-
-1. Set up the S3 client.
-2. Call `ListObjectAnnotations` on a user-specified bucket and object key.
-3. If annotations exist, display each annotation's name, size, ETag, and last modified date.
-4. If no annotations exist, display a message indicating the object has no annotations.
-5. Handle the `NoSuchKey` error if the object does not exist.
-
-Example output:
-```
-Listing annotations for object 'my-document.pdf' in bucket 'my-bucket'...
-Found 3 annotation(s):
-  - "content-type-classification" (245 bytes, last modified: 2026-09-15T10:30:00Z)
-  - "ml-sentiment-result" (1024 bytes, last modified: 2026-09-15T11:00:00Z)
-  - "processing-status" (38 bytes, last modified: 2026-09-16T08:15:00Z)
-```
-
 ## Scenario
 
 This scenario walks through the complete lifecycle of S3 object annotations, demonstrating how to attach, retrieve, list, update, and delete custom metadata on S3 objects without modifying the objects themselves.
@@ -276,5 +257,4 @@ SDK code examples include basic exception handling for each action used. The tab
 | `DeleteObjectAnnotation` | s3_metadata.yaml | s3_DeleteObjectAnnotation |
 | `DeleteObject` | s3_metadata.yaml | s3_DeleteObject |
 | `DeleteBucket` | s3_metadata.yaml | s3_DeleteBucket |
-| `S3 Object Annotations Hello` | s3_metadata.yaml | s3_Hello_ObjectAnnotations |
 | `S3 Object Annotations Scenario` | s3_metadata.yaml | s3_Scenario_ObjectAnnotations |

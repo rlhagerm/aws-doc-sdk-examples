@@ -39,8 +39,7 @@ logger = logging.getLogger(__name__)
 # Constants
 OBJECT_KEY = "sample-data.txt"
 OBJECT_CONTENT = (
-    "This is a sample text file used to demonstrate "
-    "Amazon S3 Object Annotations."
+    "This is a sample text file used to demonstrate " "Amazon S3 Object Annotations."
 )
 SEPARATOR = "-" * 80
 
@@ -93,7 +92,9 @@ class ObjectAnnotationsScenario:
             )
             if not prefix.strip():
                 prefix = "annotations-demo"
-            suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+            suffix = "".join(
+                random.choices(string.ascii_lowercase + string.digits, k=8)
+            )
             self.bucket_name = f"{prefix}-{suffix}"
 
             print(f"\nCreating bucket '{self.bucket_name}'...")
@@ -259,19 +260,13 @@ class ObjectAnnotationsScenario:
         print("\nDeleting remaining annotations...")
         for ann in remaining:
             name = ann["AnnotationName"]
-            self.s3_wrapper.delete_object_annotation(
-                self.bucket_name, OBJECT_KEY, name
-            )
+            self.s3_wrapper.delete_object_annotation(self.bucket_name, OBJECT_KEY, name)
             print(f"  Deleted '{name}'.")
 
         # Verify all removed
         print("\nVerifying all annotations removed...")
-        final = self.s3_wrapper.list_object_annotations(
-            self.bucket_name, OBJECT_KEY
-        )
-        print(
-            f"  {len(final)} annotations remaining. All annotations cleaned up."
-        )
+        final = self.s3_wrapper.list_object_annotations(self.bucket_name, OBJECT_KEY)
+        print(f"  {len(final)} annotations remaining. All annotations cleaned up.")
         print(SEPARATOR)
 
     # ------------------------------------------------------------------

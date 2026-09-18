@@ -146,6 +146,7 @@ class S3AnnotationsWrapper:
                     annotation_name,
                 )
             raise
+
     # snippet-end:[python.example_code.s3.PutObjectAnnotation]
 
     # snippet-start:[python.example_code.s3.GetObjectAnnotation]
@@ -195,6 +196,7 @@ class S3AnnotationsWrapper:
                     bucket_name,
                 )
             raise
+
     # snippet-end:[python.example_code.s3.GetObjectAnnotation]
 
     # snippet-start:[python.example_code.s3.ListObjectAnnotations]
@@ -249,6 +251,7 @@ class S3AnnotationsWrapper:
                     bucket_name,
                 )
             raise
+
     # snippet-end:[python.example_code.s3.ListObjectAnnotations]
 
     # snippet-start:[python.example_code.s3.DeleteObjectAnnotation]
@@ -289,6 +292,7 @@ class S3AnnotationsWrapper:
                     bucket_name,
                 )
             raise
+
     # snippet-end:[python.example_code.s3.DeleteObjectAnnotation]
 
     def delete_object(self, bucket_name: str, object_key: str) -> None:

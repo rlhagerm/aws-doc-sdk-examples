@@ -24,14 +24,6 @@ To run these examples, you need:
 - Run `python pip install -r requirements.txt`
 - AWS credentials configured. For more information, see [Configuring the AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html).
 
-### Hello Amazon S3 Object Annotations
-
-The Hello example is a standalone, runnable example that demonstrates the simplest use of the feature: it lists the annotations attached to an object. Run it from this directory with a bucket name and object key:
-
-```
-python s3_hello_annotations.py <bucket-name> <object-key>
-```
-
 ### Scenario
 
 This example uses a feature scenario to demonstrate the S3 object annotations lifecycle. The scenario is divided into these stages:
