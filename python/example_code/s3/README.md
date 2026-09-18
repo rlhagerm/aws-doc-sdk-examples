@@ -94,13 +94,10 @@ functions within the same service.
 - [Detect objects in images](../../cross_service/photo_analyzer)
 - [Detect people and objects in a video](../../example_code/rekognition)
 - [Make conditional requests](scenarios/conditional_requests/scenario.py)
+- [Manage object annotations](scenarios/object_annotations/scenario_object_annotations.py)
 - [Manage versioned objects in batches with a Lambda function](../../example_code/s3/s3_versioning)
 - [Upload or download large files](file_transfer/file_transfer.py)
 - [Work with versioned objects](s3_versioning/versioning.py)
-
-### Feature
-
-- [Manage object annotations](scenarios/object_annotations/scenario_object_annotations.py#L23)
 
 
 <!--custom.examples.start-->
@@ -229,6 +226,31 @@ python scenarios/conditional_requests/scenario.py
 
 <!--custom.scenarios.s3_Scenario_ConditionalRequests.start-->
 <!--custom.scenarios.s3_Scenario_ConditionalRequests.end-->
+
+#### Manage object annotations
+
+This example shows you how to do the following:
+
+- Create an Amazon S3 bucket.
+- Upload a test object.
+- Attach multiple annotations to the object.
+- Retrieve and list annotations with optional prefix filtering.
+- Update an existing annotation.
+- Delete annotations and verify removal.
+- Clean up all resources.
+
+<!--custom.scenario_prereqs.s3_Scenario_ObjectAnnotations.start-->
+<!--custom.scenario_prereqs.s3_Scenario_ObjectAnnotations.end-->
+
+Start the example by running the following at a command prompt:
+
+```
+python scenarios/object_annotations/scenario_object_annotations.py
+```
+
+
+<!--custom.scenarios.s3_Scenario_ObjectAnnotations.start-->
+<!--custom.scenarios.s3_Scenario_ObjectAnnotations.end-->
 
 #### Manage versioned objects in batches with a Lambda function
 
